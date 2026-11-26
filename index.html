@@ -102,7 +102,7 @@
       <button class="secondary" id="refreshBtn">Làm mới</button>
     </div>
     <div class="tablewrap"><table id="dataTable"><thead id="thead"></thead><tbody id="tbody"><tr><td class="empty">Đang tải dữ liệu...</td></tr></tbody></table></div>
-    <p class="hint" id="tableHint">OVER đối chiếu đúng Model + Parent Code + Material; đơn giá USD được lấy trực tiếp từ BOM.</p>
+    <p class="hint" id="tableHint">BOM V6: hiển thị trực tiếp Qty và Giá (USD). OVER đối chiếu đúng Model + Parent Code + Material.</p>
   </section>
 </main>
 
@@ -137,9 +137,13 @@ const config = {
     ["qty","Qty","number",true],
     ["price_usd","Giá (USD)","number",false]
   ],columns:[
-    ["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],
-    ["material_type","Material Type"],["material_description","Material Description"],
-    ["qty","Qty"],["price_usd","Giá (USD)"]
+    ["model","Model (Parent Code)"],
+    ["parent_code","Parent Code"],
+    ["material","Material"],
+    ["material_type","Material Type"],
+    ["material_description","Material Description"],
+    ["qty","Qty"],
+    ["price_usd","Giá (USD)"]
   ]},
   VENDOR:{table:"vendor_stock",title:"Vendor Stock",desc:"Quản lý tồn kho vật liệu theo nhà cung cấp.",fields:[
     ["vendor","Vendor","text",true],
@@ -244,7 +248,8 @@ async function loadData(){
   $("reportPanel").style.display="none";$("dataPanel").style.display="block";
   const c=config[currentTab];$("sectionTitle").textContent=c.title;$("sectionDesc").textContent=c.desc;
   $("thead").innerHTML="<tr>"+c.columns.map(x=>`<th>${x[1]}</th>`).join("")+"<th>Thao tác</th></tr>";
-  $("dataTable").style.minWidth=currentTab==="BOM"?"1120px":"760px";
+  if(currentTab==="BOM") $("thead").innerHTML="<tr><th>Model (Parent Code)</th><th>Parent Code</th><th>Material</th><th>Material Type</th><th>Material Description</th><th>Qty</th><th>Giá (USD)</th><th>Thao tác</th></tr>";
+  $("dataTable").style.minWidth=currentTab==="BOM"?"1450px":"760px";
   $("tbody").innerHTML='<tr><td class="empty" colspan="12">Đang tải...</td></tr>';
   let result;
   if(currentTab==="OVER"){
@@ -282,10 +287,12 @@ function updateStats(){
 function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderTable(){
   const q=$("search").value.toLowerCase(),mf=$("modelFilter").value,c=config[currentTab];
-  const filtered=rows.filter(r=>(!mf||r.model===mf)&&c.columns.some(([k])=>String(r[k]??"").toLowerCase().includes(q)));
-  if(!filtered.length){$("tbody").innerHTML=`<tr><td class="empty" colspan="${c.columns.length+1}">Không có dữ liệu</td></tr>`;return}
+  const searchColumns=currentTab==="BOM"?[["model"],["parent_code"],["material"],["material_type"],["material_description"],["qty"],["price_usd"]]:c.columns;
+  const filtered=rows.filter(r=>(!mf||r.model===mf)&&searchColumns.some(([k])=>String(r[k]??"").toLowerCase().includes(q)));
+  if(!filtered.length){$("tbody").innerHTML=`<tr><td class="empty" colspan="${(currentTab==="BOM"?7:c.columns.length)+1}">Không có dữ liệu</td></tr>`;return}
   $("tbody").innerHTML=filtered.map(r=>{
-    const cells=c.columns.map(([k])=>{
+    const displayColumns=currentTab==="BOM"?[["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],["material_type","Material Type"],["material_description","Material Description"],["qty","Qty"],["price_usd","Giá (USD)"]]:c.columns;
+    const cells=displayColumns.map(([k])=>{
       let val=r[k]??"";
       if(["price_usd","excess_cost_usd"].includes(k))val=fmtMoney(val);
        else if(["qty","actual_qty","excess_qty"].includes(k))val=fmt(val);
