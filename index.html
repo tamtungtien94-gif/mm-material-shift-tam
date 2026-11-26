@@ -63,8 +63,9 @@
 <main id="app" class="wrap hidden">
   <div class="topline">
     <nav class="tabs">
-      <button class="tab active" data-tab="BOM">BOM</button>
-      <button class="tab" data-tab="PRICE">GIÁ</button>
+      <button class="tab active" data-tab="REPORT">BÁO CÁO</button>
+      <button class="tab" data-tab="BOM">BOM</button>
+      <button class="tab" data-tab="VENDOR">VENDOR STOCK</button>
       <button class="tab" data-tab="OVER">OVER</button>
     </nav>
     <div class="actions">
@@ -79,7 +80,17 @@
     <div class="stat"><small>Dòng OVER</small><strong id="statOver">0</strong></div>
     <div class="stat"><small>Tổng chi phí vượt</small><strong id="statCost">0</strong></div>
   </div>
-  <section class="panel">
+  <section class="panel" id="reportPanel" style="display:none;margin-bottom:18px">
+    <h2>Báo cáo tổng hợp</h2>
+    <div class="grid" style="margin-bottom:0">
+      <div class="stat"><small>Tổng dòng BOM</small><strong id="reportBom">0</strong></div>
+      <div class="stat"><small>Vật liệu Vendor Stock</small><strong id="reportVendor">0</strong></div>
+      <div class="stat"><small>Bản ghi OVER</small><strong id="reportOver">0</strong></div>
+      <div class="stat"><small>Tổng chi phí OVER (USD)</small><strong id="reportCost">0</strong></div>
+    </div>
+    <p class="hint">Báo cáo tổng hợp từ dữ liệu BOM, Vendor Stock và OVER hiện có trong Supabase.</p>
+  </section>
+  <section class="panel" id="dataPanel">
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
       <div><h2 id="sectionTitle">Quản lý BOM</h2><div class="hint" id="sectionDesc">Quản lý Model, Code, Remark và định mức vật liệu.</div></div>
       <button id="addBtn">+ Thêm dữ liệu</button>
@@ -90,7 +101,7 @@
       <button class="secondary" id="refreshBtn">Làm mới</button>
     </div>
     <div class="tablewrap"><table><thead id="thead"></thead><tbody id="tbody"><tr><td class="empty">Đang tải dữ liệu...</td></tr></tbody></table></div>
-    <p class="hint" id="tableHint">OVER đối chiếu đúng Model + Code. Với Code dùng chung, nhập danh sách Model phân tách bằng dấu chấm, ví dụ: S958.S960.S961.</p>
+    <p class="hint" id="tableHint">OVER đối chiếu đúng Model + Parent Code + Material; đơn giá USD được lấy trực tiếp từ BOM.</p>
   </section>
 </main>
 
@@ -107,22 +118,51 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 /* Điền URL và Publishable/anon key của dự án Supabase tại đây. */
-const SUPABASE_URL = "https://tthcuindahszhungaidc.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_mlalSLxlWZCmNy3WindGZw_nET5JFur";
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY";
 let db = null, currentTab = "BOM", rows = [], editingId = null;
 const $ = id => document.getElementById(id);
 const configReady = !SUPABASE_URL.startsWith("YOUR_") && !SUPABASE_ANON_KEY.startsWith("YOUR_");
 
 const config = {
-  BOM:{table:"material_bom",title:"Quản lý BOM",desc:"Quản lý Model, Code, Remark và định mức vật liệu.",fields:[
-    ["model","Model","text",true],["code","Code","text",true],["remark","Remark","text",false],["norm_qty","Định mức","number",true],["unit","Đơn vị","text",true]
-  ],columns:[["model","Model"],["code","Code"],["remark","Remark"],["norm_qty","Định mức"],["unit","Đơn vị"]]},
-  PRICE:{table:"material_prices",title:"Quản lý giá vật liệu",desc:"Quản lý đơn giá theo Code, nhà cung cấp và ngày áp dụng.",fields:[
-    ["code","Code","text",true],["unit_price","Đơn giá","number",true],["currency","Tiền tệ","text",true],["supplier","Nhà cung cấp","text",false],["effective_date","Ngày áp dụng","date",true]
-  ],columns:[["code","Code"],["unit_price","Đơn giá"],["currency","Tiền tệ"],["supplier","Nhà cung cấp"],["effective_date","Ngày áp dụng"]]},
-  OVER:{table:"material_over",title:"Quản lý OVER",desc:"Nhập lượng tiêu hao thực tế; hệ thống đối chiếu BOM và giá để tính vượt.",fields:[
-    ["work_date","Ngày","date",true],["model","Model","text",true],["code","Code","text",true],["actual_qty","Thực tế","number",true],["note","Ghi chú","text",false]
-  ],columns:[["work_date","Ngày"],["model","Model"],["code","Code"],["norm_qty","Định mức BOM"],["actual_qty","Thực tế"],["excess_qty","Số lượng vượt"],["unit_price","Đơn giá áp dụng"],["excess_cost","Chi phí vượt"],["bom_status","Đối chiếu BOM"],["price_status","Đối chiếu giá"],["note","Ghi chú"]]}
+  REPORT:{table:null,title:"Báo cáo tổng hợp",desc:"Tổng hợp dữ liệu BOM, Vendor Stock và OVER.",fields:[],columns:[]},
+  BOM:{table:"material_bom",title:"Quản lý BOM",desc:"Model, Parent Code, Material, loại vật liệu, mô tả, Qty và Price (USD).",fields:[
+    ["model","Model (Parent Code)","text",true],
+    ["parent_code","Parent Code","text",true],
+    ["material","Material","text",true],
+    ["material_type","Material Type","text",false],
+    ["material_description","Material Description","text",false],
+    ["qty","Qty","number",true],
+    ["price_usd","Price (USD)","number",false]
+  ],columns:[
+    ["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],
+    ["material_type","Material Type"],["material_description","Material Description"],
+    ["qty","Qty"],["price_usd","Price (USD)"]
+  ]},
+  VENDOR:{table:"vendor_stock",title:"Vendor Stock",desc:"Quản lý tồn kho vật liệu theo nhà cung cấp.",fields:[
+    ["vendor","Vendor","text",true],
+    ["material","Material","text",true],
+    ["material_description","Material Description","text",false],
+    ["stock_qty","Stock Qty","number",true],
+    ["unit","Unit","text",false],
+    ["update_date","Update Date","date",true]
+  ],columns:[
+    ["vendor","Vendor"],["material","Material"],["material_description","Material Description"],
+    ["stock_qty","Stock Qty"],["unit","Unit"],["update_date","Update Date"]
+  ]},
+  OVER:{table:"material_over",title:"Quản lý OVER",desc:"Nhập tiêu hao thực tế; hệ thống đối chiếu BOM theo Model + Parent Code + Material.",fields:[
+    ["work_date","Ngày","date",true],
+    ["model","Model","text",true],
+    ["parent_code","Parent Code","text",true],
+    ["material","Material","text",true],
+    ["actual_qty","Thực tế","number",true],
+    ["note","Ghi chú","text",false]
+  ],columns:[
+    ["work_date","Ngày"],["model","Model"],["parent_code","Parent Code"],["material","Material"],
+    ["qty","Định mức BOM"],["actual_qty","Thực tế"],["excess_qty","Số lượng vượt"],
+    ["price_usd","Price (USD)"],["excess_cost_usd","Chi phí vượt (USD)"],
+    ["bom_status","Đối chiếu BOM"],["note","Ghi chú"]
+  ]}
 };
 
 function notify(msg){alert(msg)}
@@ -154,6 +194,8 @@ $("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};
 
 async function loadData(){
   if(!db)return;
+  if(currentTab==="REPORT"){await loadReport();return}
+  $("reportPanel").style.display="none";$("dataPanel").style.display="block";
   const c=config[currentTab];$("sectionTitle").textContent=c.title;$("sectionDesc").textContent=c.desc;
   $("thead").innerHTML="<tr>"+c.columns.map(x=>`<th>${x[1]}</th>`).join("")+"<th>Thao tác</th></tr>";
   $("tbody").innerHTML='<tr><td class="empty" colspan="12">Đang tải...</td></tr>';
@@ -169,11 +211,26 @@ async function loadData(){
   $("modelFilter").innerHTML='<option value="">Tất cả Model</option>'+models.map(m=>`<option>${escapeHtml(m)}</option>`).join("");
   updateStats();renderTable();
 }
+async function loadReport(){
+  $("reportPanel").style.display="block";$("dataPanel").style.display="none";
+  $("sectionTitle").textContent="Báo cáo tổng hợp";
+  $("sectionDesc").textContent="Tổng hợp BOM, Vendor Stock và OVER.";
+  const [b,v,o]=await Promise.all([
+    db.from("material_bom").select("id",{count:"exact",head:true}),
+    db.from("vendor_stock").select("id",{count:"exact",head:true}),
+    db.from("v_material_over_calculated").select("excess_cost_usd")
+  ]);
+  if(b.error||v.error||o.error){notify("Không tải được báo cáo: "+(b.error||v.error||o.error).message);return}
+  $("reportBom").textContent=b.count||0;
+  $("reportVendor").textContent=v.count||0;
+  $("reportOver").textContent=(o.data||[]).length;
+  $("reportCost").textContent=fmt((o.data||[]).reduce((sum,r)=>sum+Number(r.excess_cost_usd||0),0));
+}
 function updateStats(){
   $("statBom").textContent=rows.length;
-  $("statCodes").textContent=new Set(rows.map(r=>r.code).filter(Boolean)).size;
+  $("statCodes").textContent=new Set(rows.map(r=>r.material).filter(Boolean)).size;
   $("statOver").textContent=currentTab==="OVER"?rows.length:"—";
-  $("statCost").textContent=currentTab==="OVER"?fmt(rows.reduce((s,r)=>s+Number(r.excess_cost||0),0)):"—";
+  $("statCost").textContent=currentTab==="OVER"?fmt(rows.reduce((s,r)=>s+Number(r.excess_cost_usd||0),0)):"—";
 }
 function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderTable(){
@@ -183,10 +240,9 @@ function renderTable(){
   $("tbody").innerHTML=filtered.map(r=>{
     const cells=c.columns.map(([k])=>{
       let val=r[k]??"";
-      if(["norm_qty","actual_qty","excess_qty","unit_price","excess_cost"].includes(k))val=fmt(val);
+      if(["qty","actual_qty","excess_qty","price_usd","excess_cost_usd"].includes(k))val=fmt(val);
       if(k==="excess_qty")return `<td><span class="pill ${Number(val)>0?"over":""}">${escapeHtml(val)}</span></td>`;
       if(k==="bom_status")return `<td><span class="pill ${r.bom_found?"":"over"}">${r.bom_found?"Đã khớp":"Chưa có BOM"}</span></td>`;
-      if(k==="price_status")return `<td><span class="pill ${r.price_found?"":"over"}">${r.price_found?"Đã có giá":"Chưa có giá"}</span></td>`;
       return `<td>${escapeHtml(val)}</td>`;
     }).join("");
     const buttons=`<button class="secondary" data-edit="${r.id}">Sửa</button> <button class="danger" data-delete="${r.id}">Xóa</button>`;
@@ -197,7 +253,7 @@ function renderTable(){
 }
 function openModal(row=null){
   editingId=row?.id||null;const c=config[currentTab];$("modalTitle").textContent=(row?"Sửa ":"Thêm ")+c.title;
-  $("formFields").innerHTML=c.fields.map(([key,label,type,required])=>`<div class="field ${key==="remark"||key==="supplier"?"full":""}"><label>${label}${required?" *":""}</label><input name="${key}" type="${type}" ${required?"required":""} step="${type==="number"?"0.0001":"any"}" value="${escapeHtml(row?.[key]??"")}"></div>`).join("");
+  $("formFields").innerHTML=c.fields.map(([key,label,type,required])=>`<div class="field ${key==="remark"||key==="supplier"?"full":""}"><label>${label}${required?" *":""}</label><input name="${key}" type="${type}" ${required?"required":""} step="any" value="${escapeHtml(row?.[key]??"")}"></div>`).join("");
   $("modal").classList.add("open");
 }
 function closeModal(){$("modal").classList.remove("open")}
