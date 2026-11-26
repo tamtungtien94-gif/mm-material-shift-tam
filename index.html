@@ -69,7 +69,8 @@
       <button class="tab" data-tab="OVER">OVER</button>
     </nav>
     <div class="actions">
-      <label class="filelabel secondary" for="excelFile">Import Excel</label><input id="excelFile" type="file" accept=".xlsx,.xls,.csv" class="hidden">
+      <button class="secondary" id="templateBtn">Tải file mẫu Excel</button>
+      <label class="filelabel secondary" id="importLabel" for="excelFile">Import Excel</label><input id="excelFile" type="file" accept=".xlsx,.xls,.csv" class="hidden">
       <button class="secondary" id="exportBtn">Export Excel</button>
       <button class="secondary" id="logoutBtn">Đăng xuất</button>
     </div>
@@ -118,9 +119,9 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 /* Điền URL và Publishable/anon key của dự án Supabase tại đây. */
-const SUPABASE_URL = "https://tthcuindahszhungaidc.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_mlalSLxlWZCmNy3WindGZw_nET5JFur";
-let db = null, currentTab = "BOM", rows = [], editingId = null;
+const SUPABASE_URL = "YOUR_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY";
+let db = null, currentTab = "REPORT", rows = [], editingId = null;
 const $ = id => document.getElementById(id);
 const configReady = !SUPABASE_URL.startsWith("YOUR_") && !SUPABASE_ANON_KEY.startsWith("YOUR_");
 
@@ -165,6 +166,47 @@ const config = {
   ]}
 };
 
+const excelTemplates = {
+  BOM: {
+    sheet:"BOM",
+    headers:["Model (Parent Code)","Parent Code","Material","Material Type","Material Description","Qty","Price (USD)"],
+    rows:[
+      ["S958","GH96-23279B","GH02-27748A","Vật liệu","TAPE SPONGE-SENSOR FA;SM-S948,PU,LRS02",1,0.005375],
+      ["S958","GH96-23279B","GH02-29024A","Vật liệu","TAPE INSULATION-5X CAM CONN;SM-S958U,PET",1,0.004074],
+      ["S958","GH96-23279B","GH02-28777A","Vật liệu","TAPE SPONGE-WIDE CAM BTM;SM-S958U,PU,SSE",1,0.01421],
+      ["S958","GH96-23279B","GH63-23440A","Vật liệu","PROTECTOR VINYL-FRONT SIDE BTM;SM-S958U,",1,0.036512],
+      ["S958","GH96-23279B","GH02-28003A","Vật liệu","TAPE SPONGE-BIT UPPER;SM-S948,PU,FN2020-",1,0.003646]
+    ]
+  },
+  VENDOR: {
+    sheet:"VENDOR STOCK",
+    headers:["Vendor","Material","Material Description","Stock Qty","Unit","Update Date"],
+    rows:[["","","", "", "", ""]]
+  },
+  OVER: {
+    sheet:"OVER",
+    headers:["Ngày","Model","Parent Code","Material","Thực tế","Ghi chú"],
+    rows:[["","","","","",""]]
+  }
+};
+
+function downloadTemplate(){
+  if(currentTab==="REPORT"){notify("Hãy chọn BOM, VENDOR STOCK hoặc OVER để tải file mẫu.");return}
+  const t=excelTemplates[currentTab];
+  const ws=XLSX.utils.aoa_to_sheet([t.headers,...t.rows]);
+  ws["!cols"]=t.headers.map((h,i)=>({wch:[24,22,22,18,58,16,18][i]||20}));
+  ws["!freeze"]={xSplit:0,ySplit:1};
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,t.sheet);
+  XLSX.writeFile(wb,`Mau_${currentTab}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function updateExcelControls(){
+  const isReport=currentTab==="REPORT";
+  ["templateBtn","importLabel","exportBtn"].forEach(id=>$(id).classList.toggle("hidden",isReport));
+  $("addBtn").classList.toggle("hidden",isReport);
+}
+
 function notify(msg){alert(msg)}
 function fmt(v){return Number(v||0).toLocaleString("vi-VN",{maximumFractionDigits:4})}
 function setConnection(msg,ok=false){$("connection").textContent=msg;$("connection").className="status"+(ok?" ok":"")}
@@ -186,7 +228,9 @@ $("loginBtn").onclick=async()=>{
 };
 $("logoutBtn").onclick=async()=>{await db.auth.signOut()};
 $("refreshBtn").onclick=loadData;
-document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab;document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));loadData()});
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab;document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));updateExcelControls();loadData()});
+$("templateBtn").onclick=downloadTemplate;
+updateExcelControls();
 $("search").oninput=renderTable;$("modelFilter").onchange=renderTable;
 $("addBtn").onclick=()=>openModal();
 $("cancelBtn").onclick=closeModal;
@@ -277,13 +321,14 @@ $("exportBtn").onclick=()=>{
 };
 $("excelFile").onchange=async e=>{
   const file=e.target.files[0];if(!file)return;
+  if(currentTab==="REPORT"){notify("Chọn tab dữ liệu trước khi Import.");e.target.value="";return}
   const c=config[currentTab],reader=new FileReader();
   reader.onload=async ev=>{
     try{
       const wb=XLSX.read(ev.target.result,{type:"array"}),data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
       if(!data.length){notify("File không có dữ liệu.");return}
       const aliases={};c.fields.forEach(([k,l])=>{aliases[k.toLowerCase()]=k;aliases[l.toLowerCase()]=k});
-      const payload=data.map(item=>{const out={};Object.entries(item).forEach(([k,v])=>{const target=aliases[String(k).trim().toLowerCase()];if(target)out[target]=["norm_qty","unit_price","actual_qty"].includes(target)?Number(v):String(v)});return out});
+      const payload=data.map(item=>{const out={};Object.entries(item).forEach(([k,v])=>{const target=aliases[String(k).trim().toLowerCase()];if(target)out[target]=["qty","price_usd","stock_qty","actual_qty"].includes(target)?Number(v):String(v)});return out});
       const {error}=await db.from(c.table).insert(payload);
       if(error)notify("Import lỗi: "+error.message);else{notify(`Đã import ${payload.length} dòng.`);await loadData()}
     }catch(err){notify("Không đọc được file: "+err.message)}
