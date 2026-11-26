@@ -27,7 +27,7 @@
     .toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:13px}
     input,select{border:1px solid #d0d5dd;border-radius:8px;padding:10px 11px;font:13px Inter;background:#fff;color:var(--text);min-width:0}
     input[type=search]{min-width:230px;flex:1}
-    .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:10px}
+    .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
     table{width:100%;border-collapse:collapse;min-width:760px;background:#fff}
     th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
     th{background:#f8fafc;color:#475467;font-size:12px;text-transform:uppercase;letter-spacing:.35px}
@@ -101,7 +101,7 @@
       <select id="modelFilter"><option value="">Tất cả Model</option></select>
       <button class="secondary" id="refreshBtn">Làm mới</button>
     </div>
-    <div class="tablewrap"><table><thead id="thead"></thead><tbody id="tbody"><tr><td class="empty">Đang tải dữ liệu...</td></tr></tbody></table></div>
+    <div class="tablewrap"><table id="dataTable"><thead id="thead"></thead><tbody id="tbody"><tr><td class="empty">Đang tải dữ liệu...</td></tr></tbody></table></div>
     <p class="hint" id="tableHint">OVER đối chiếu đúng Model + Parent Code + Material; đơn giá USD được lấy trực tiếp từ BOM.</p>
   </section>
 </main>
@@ -244,6 +244,7 @@ async function loadData(){
   $("reportPanel").style.display="none";$("dataPanel").style.display="block";
   const c=config[currentTab];$("sectionTitle").textContent=c.title;$("sectionDesc").textContent=c.desc;
   $("thead").innerHTML="<tr>"+c.columns.map(x=>`<th>${x[1]}</th>`).join("")+"<th>Thao tác</th></tr>";
+  $("dataTable").style.minWidth=currentTab==="BOM"?"1120px":"760px";
   $("tbody").innerHTML='<tr><td class="empty" colspan="12">Đang tải...</td></tr>';
   let result;
   if(currentTab==="OVER"){
