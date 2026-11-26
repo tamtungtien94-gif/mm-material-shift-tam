@@ -4,6 +4,4 @@
 
 window.MM_CONFIG = {
   SUPABASE_URL: "https://tthcuindahszhungaidc.supabase.co",
-  SUPABASE_PUBLISHABLE_KEY: "sb_publishable_mlalSLxlWZCmNy3WindGZw_nET5JFur
-"
-};
+  SUPABASE_PUBLISHABLE_KEY: "sb_publishable_mlalSLxlWZCmNy3WindGZw_nET5JFur"};
