@@ -135,11 +135,11 @@ const config = {
     ["material_type","Material Type","text",false],
     ["material_description","Material Description","text",false],
     ["qty","Qty","number",true],
-    ["price_usd","Price (USD)","number",false]
+    ["price_usd","Giá (USD)","number",false]
   ],columns:[
     ["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],
     ["material_type","Material Type"],["material_description","Material Description"],
-    ["qty","Qty"],["price_usd","Price (USD)"]
+    ["qty","Qty"],["price_usd","Giá (USD)"]
   ]},
   VENDOR:{table:"vendor_stock",title:"Vendor Stock",desc:"Quản lý tồn kho vật liệu theo nhà cung cấp.",fields:[
     ["vendor","Vendor","text",true],
@@ -162,7 +162,7 @@ const config = {
   ],columns:[
     ["work_date","Ngày"],["model","Model"],["parent_code","Parent Code"],["material","Material"],
     ["qty","Định mức BOM"],["actual_qty","Thực tế"],["excess_qty","Số lượng vượt"],
-    ["price_usd","Price (USD)"],["excess_cost_usd","Chi phí vượt (USD)"],
+    ["price_usd","Giá (USD)"],["excess_cost_usd","Chi phí vượt (USD)"],
     ["bom_status","Đối chiếu BOM"],["note","Ghi chú"]
   ]}
 };
@@ -170,7 +170,7 @@ const config = {
 const excelTemplates = {
   BOM: {
     sheet:"BOM",
-    headers:["Model (Parent Code)","Parent Code","Material","Material Type","Material Description","Qty","Price (USD)"],
+    headers:["Model (Parent Code)","Parent Code","Material","Material Type","Material Description","Qty","Giá (USD)"],
     rows:[
       ["S958","GH96-23279B","GH02-27748A","Vật liệu","TAPE SPONGE-SENSOR FA;SM-S948,PU,LRS02",1,0.005375],
       ["S958","GH96-23279B","GH02-29024A","Vật liệu","TAPE INSULATION-5X CAM CONN;SM-S958U,PET",1,0.004074],
@@ -210,6 +210,7 @@ function updateExcelControls(){
 
 function notify(msg){alert(msg)}
 function fmt(v){return Number(v||0).toLocaleString("vi-VN",{maximumFractionDigits:4})}
+function fmtMoney(v){return "$"+Number(v||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:6})}
 function setConnection(msg,ok=false){$("connection").textContent=msg;$("connection").className="status"+(ok?" ok":"")}
 async function init(){
   if(!configReady){$("login").classList.remove("hidden");$("loginMsg").textContent="Cần điền SUPABASE_URL và SUPABASE_PUBLISHABLE_KEY trong file config.js trước khi sử dụng.";setConnection("Chưa cấu hình Supabase");return}
@@ -269,13 +270,13 @@ async function loadReport(){
   $("reportBom").textContent=b.count||0;
   $("reportVendor").textContent=v.count||0;
   $("reportOver").textContent=(o.data||[]).length;
-  $("reportCost").textContent=fmt((o.data||[]).reduce((sum,r)=>sum+Number(r.excess_cost_usd||0),0));
+  $("reportCost").textContent=fmtMoney((o.data||[]).reduce((sum,r)=>sum+Number(r.excess_cost_usd||0),0));
 }
 function updateStats(){
   $("statBom").textContent=rows.length;
   $("statCodes").textContent=new Set(rows.map(r=>r.material).filter(Boolean)).size;
   $("statOver").textContent=currentTab==="OVER"?rows.length:"—";
-  $("statCost").textContent=currentTab==="OVER"?fmt(rows.reduce((s,r)=>s+Number(r.excess_cost_usd||0),0)):"—";
+  $("statCost").textContent=currentTab==="OVER"?fmtMoney(rows.reduce((s,r)=>s+Number(r.excess_cost_usd||0),0)):"—";
 }
 function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderTable(){
@@ -285,7 +286,8 @@ function renderTable(){
   $("tbody").innerHTML=filtered.map(r=>{
     const cells=c.columns.map(([k])=>{
       let val=r[k]??"";
-      if(["qty","actual_qty","excess_qty","price_usd","excess_cost_usd"].includes(k))val=fmt(val);
+      if(["price_usd","excess_cost_usd"].includes(k))val=fmtMoney(val);
+       else if(["qty","actual_qty","excess_qty"].includes(k))val=fmt(val);
       if(k==="excess_qty")return `<td><span class="pill ${Number(val)>0?"over":""}">${escapeHtml(val)}</span></td>`;
       if(k==="bom_status")return `<td><span class="pill ${r.bom_found?"":"over"}">${r.bom_found?"Đã khớp":"Chưa có BOM"}</span></td>`;
       return `<td>${escapeHtml(val)}</td>`;
