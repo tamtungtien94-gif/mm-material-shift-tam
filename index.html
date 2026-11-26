@@ -247,7 +247,14 @@ async function loadData(){
   if(currentTab==="REPORT"){await loadReport();return}
   $("reportPanel").style.display="none";$("dataPanel").style.display="block";
   const c=config[currentTab];$("sectionTitle").textContent=c.title;$("sectionDesc").textContent=c.desc;
-  $("thead").innerHTML="<tr>"+c.columns.map(x=>`<th>${x[1]}</th>`).join("")+"<th>Thao tác</th></tr>";
+  const headerColumns = currentTab === "BOM"
+  ? ["Model (Parent Code)", "Parent Code", "Material",
+     "Material Type", "Material Description", "Q'ty", "Giá (USD)"]
+  : c.columns.map(x => x[1]);
+
+$("thead").innerHTML =
+  "<tr>" + headerColumns.map(x => `<th>${x}</th>`).join("") +
+  "<th>Thao tác</th></tr>";
   if(currentTab==="BOM") $("thead").innerHTML="<tr><th>Model (Parent Code)</th><th>Parent Code</th><th>Material</th><th>Material Type</th><th>Material Description</th><th>Qty</th><th>Giá (USD)</th><th>Thao tác</th></tr>";
   $("dataTable").style.minWidth=currentTab==="BOM"?"1450px":"760px";
   $("tbody").innerHTML='<tr><td class="empty" colspan="12">Đang tải...</td></tr>';
