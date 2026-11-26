@@ -117,10 +117,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="./config.js"></script>
 <script>
-/* Điền URL và Publishable/anon key của dự án Supabase tại đây. */
-const SUPABASE_URL = "YOUR_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY";
+/* Cấu hình được đọc từ config.js để không phải sửa lại khi cập nhật giao diện. */
+const SUPABASE_URL = window.MM_CONFIG?.SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = window.MM_CONFIG?.SUPABASE_PUBLISHABLE_KEY || "";
 let db = null, currentTab = "REPORT", rows = [], editingId = null;
 const $ = id => document.getElementById(id);
 const configReady = !SUPABASE_URL.startsWith("YOUR_") && !SUPABASE_ANON_KEY.startsWith("YOUR_");
@@ -211,7 +212,7 @@ function notify(msg){alert(msg)}
 function fmt(v){return Number(v||0).toLocaleString("vi-VN",{maximumFractionDigits:4})}
 function setConnection(msg,ok=false){$("connection").textContent=msg;$("connection").className="status"+(ok?" ok":"")}
 async function init(){
-  if(!configReady){$("login").classList.remove("hidden");$("loginMsg").textContent="Cần cấu hình SUPABASE_URL và SUPABASE_ANON_KEY trong index.html trước khi sử dụng.";setConnection("Chưa cấu hình Supabase");return}
+  if(!configReady){$("login").classList.remove("hidden");$("loginMsg").textContent="Cần điền SUPABASE_URL và SUPABASE_PUBLISHABLE_KEY trong file config.js trước khi sử dụng.";setConnection("Chưa cấu hình Supabase");return}
   db=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
   const {data:{session}}=await db.auth.getSession();
   if(session) showApp(session.user); else $("login").classList.remove("hidden");
