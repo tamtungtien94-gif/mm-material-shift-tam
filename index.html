@@ -174,13 +174,13 @@ const config = {
 const excelTemplates = {
   BOM: {
     sheet:"BOM",
-    headers:["Model (Parent Code)","Parent Code","Material","Material Type","Material Description","Qty","Giá (USD)"],
+    headers:["Model (Parent Code)","Parent Code","Material","Q'ty","Giá (USD)","Material Type","Material Description"],
     rows:[
-      ["S958","GH96-23279B","GH02-27748A","Vật liệu","TAPE SPONGE-SENSOR FA;SM-S948,PU,LRS02",1,0.005375],
-      ["S958","GH96-23279B","GH02-29024A","Vật liệu","TAPE INSULATION-5X CAM CONN;SM-S958U,PET",1,0.004074],
-      ["S958","GH96-23279B","GH02-28777A","Vật liệu","TAPE SPONGE-WIDE CAM BTM;SM-S958U,PU,SSE",1,0.01421],
-      ["S958","GH96-23279B","GH63-23440A","Vật liệu","PROTECTOR VINYL-FRONT SIDE BTM;SM-S958U,",1,0.036512],
-      ["S958","GH96-23279B","GH02-28003A","Vật liệu","TAPE SPONGE-BIT UPPER;SM-S948,PU,FN2020-",1,0.003646]
+      ["S958","GH96-23279B","GH02-27748A",1,0.005375,"Vật liệu","TAPE SPONGE-SENSOR FA;SM-S948,PU,LRS02"],
+      ["S958","GH96-23279B","GH02-29024A",1,0.004074,"Vật liệu","TAPE INSULATION-5X CAM CONN;SM-S958U,PET"],
+      ["S958","GH96-23279B","GH02-28777A",1,0.01421,"Vật liệu","TAPE SPONGE-WIDE CAM BTM;SM-S958U,PU,SSE"],
+      ["S958","GH96-23279B","GH63-23440A",1,0.036512,"Vật liệu","PROTECTOR VINYL-FRONT SIDE BTM;SM-S958U,"],
+      ["S958","GH96-23279B","GH02-28003A",1,0.003646,"Vật liệu","TAPE SPONGE-BIT UPPER;SM-S948,PU,FN2020-"]
     ]
   },
   VENDOR: {
@@ -199,7 +199,7 @@ function downloadTemplate(){
   if(currentTab==="REPORT"){notify("Hãy chọn BOM, VENDOR STOCK hoặc OVER để tải file mẫu.");return}
   const t=excelTemplates[currentTab];
   const ws=XLSX.utils.aoa_to_sheet([t.headers,...t.rows]);
-  ws["!cols"]=t.headers.map((h,i)=>({wch:[24,22,22,18,58,16,18][i]||20}));
+  ws["!cols"]=t.headers.map((h,i)=>({wch:[24,22,22,14,18,18,58][i]||20}));
   ws["!freeze"]={xSplit:0,ySplit:1};
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,t.sheet);
@@ -253,8 +253,8 @@ async function loadData(){
 
   const displayColumns=currentTab==="BOM"
     ? [["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],
-       ["material_type","Material Type"],["material_description","Material Description"],
-       ["qty","Q'ty"],["price_usd","Giá (USD)"]]
+       ["qty","Q'ty"],["price_usd","Giá (USD)"],
+       ["material_type","Material Type"],["material_description","Material Description"]]
     : c.columns;
 
   $("thead").innerHTML="<tr>"+displayColumns.map(x=>`<th>${x[1]}</th>`).join("")+
@@ -327,8 +327,8 @@ function renderTable(){
   const c=config[currentTab];
   const displayColumns=currentTab==="BOM"
     ? [["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],
-       ["material_type","Material Type"],["material_description","Material Description"],
-       ["qty","Q'ty"],["price_usd","Giá (USD)"]]
+       ["qty","Q'ty"],["price_usd","Giá (USD)"],
+       ["material_type","Material Type"],["material_description","Material Description"]]
     : c.columns;
 
   const filtered=rows.filter(r=>
