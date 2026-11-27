@@ -102,7 +102,7 @@
       <button class="secondary" id="refreshBtn">Làm mới</button>
     </div>
     <div class="tablewrap"><table id="dataTable"><thead id="thead"></thead><tbody id="tbody"><tr><td class="empty">Đang tải dữ liệu...</td></tr></tbody></table></div>
-    <p class="hint" id="tableHint">BOM V6: hiển thị trực tiếp Qty và Giá (USD). OVER đối chiếu đúng Model + Parent Code + Material.</p>
+    <p class="hint" id="tableHint">BOM V7: hiển thị Q'ty và Giá (USD); giá tra theo Material từ material_prices khi price_usd trống.</p>
   </section>
 </main>
 
@@ -214,7 +214,7 @@ function updateExcelControls(){
 
 function notify(msg){alert(msg)}
 function fmt(v){return Number(v||0).toLocaleString("vi-VN",{maximumFractionDigits:4})}
-function fmtMoney(v){return "$"+Number(v||0).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:6})}
+function fmtMoney(v){if(v===null||v===undefined||v==="")return "";return "$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:6})}
 function setConnection(msg,ok=false){$("connection").textContent=msg;$("connection").className="status"+(ok?" ok":"")}
 async function init(){
   if(!configReady){$("login").classList.remove("hidden");$("loginMsg").textContent="Cần điền SUPABASE_URL và SUPABASE_PUBLISHABLE_KEY trong file config.js trước khi sử dụng.";setConnection("Chưa cấu hình Supabase");return}
@@ -245,30 +245,59 @@ $("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};
 async function loadData(){
   if(!db)return;
   if(currentTab==="REPORT"){await loadReport();return}
-  $("reportPanel").style.display="none";$("dataPanel").style.display="block";
-  const c=config[currentTab];$("sectionTitle").textContent=c.title;$("sectionDesc").textContent=c.desc;
-  const headerColumns = currentTab === "BOM"
-  ? ["Model (Parent Code)", "Parent Code", "Material",
-     "Material Type", "Material Description", "Q'ty", "Giá (USD)"]
-  : c.columns.map(x => x[1]);
+  $("reportPanel").style.display="none";
+  $("dataPanel").style.display="block";
+  const c=config[currentTab];
+  $("sectionTitle").textContent=c.title;
+  $("sectionDesc").textContent=c.desc;
 
-$("thead").innerHTML =
-  "<tr>" + headerColumns.map(x => `<th>${x}</th>`).join("") +
-  "<th>Thao tác</th></tr>";
-  if(currentTab==="BOM") $("thead").innerHTML="<tr><th>Model (Parent Code)</th><th>Parent Code</th><th>Material</th><th>Material Type</th><th>Material Description</th><th>Qty</th><th>Giá (USD)</th><th>Thao tác</th></tr>";
+  const displayColumns=currentTab==="BOM"
+    ? [["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],
+       ["material_type","Material Type"],["material_description","Material Description"],
+       ["qty","Q'ty"],["price_usd","Giá (USD)"]]
+    : c.columns;
+
+  $("thead").innerHTML="<tr>"+displayColumns.map(x=>`<th>${x[1]}</th>`).join("")+
+    "<th>Thao tác</th></tr>";
   $("dataTable").style.minWidth=currentTab==="BOM"?"1450px":"760px";
-  $("tbody").innerHTML='<tr><td class="empty" colspan="12">Đang tải...</td></tr>';
-  let result;
-  if(currentTab==="OVER"){
-    result=await db.from("v_material_over_calculated").select("*").order("work_date",{ascending:false});
-  }else{
-    result=await db.from(c.table).select("*").order("created_at",{ascending:false});
+  $("tbody").innerHTML='<tr><td class="empty" colspan="'+(displayColumns.length+1)+'">Đang tải...</td></tr>';
+
+  let result=await db.from(c.table).select("*").order("created_at",{ascending:false});
+  if(result.error){
+    $("tbody").innerHTML=`<tr><td class="empty" colspan="${displayColumns.length+1}">${escapeHtml(result.error.message)}</td></tr>`;
+    return;
   }
-  if(result.error){$("tbody").innerHTML=`<tr><td class="empty">${escapeHtml(result.error.message)}</td></tr>`;return}
   rows=result.data||[];
+
+  // Nếu giá trong BOM là NULL, tra bảng giá theo Material = material_prices.code.
+  if(currentTab==="BOM" && rows.length){
+    const priceResult=await db.from("material_prices")
+      .select("code,unit_price,currency,effective_date")
+      .order("effective_date",{ascending:false});
+    if(priceResult.error){
+      console.warn("Không đọc được material_prices:",priceResult.error.message);
+    }else{
+      const priceMap=new Map();
+      (priceResult.data||[]).forEach(p=>{
+        const code=String(p.code||"").trim().toUpperCase();
+        const currency=String(p.currency||"USD").trim().toUpperCase();
+        if(code && currency==="USD" && !priceMap.has(code) && p.unit_price!==null){
+          priceMap.set(code,Number(p.unit_price));
+        }
+      });
+      rows=rows.map(r=>{
+        const hasOwnPrice=r.price_usd!==null && r.price_usd!==undefined && r.price_usd!=="";
+        const lookup=priceMap.get(String(r.material||"").trim().toUpperCase());
+        return {...r,price_usd:hasOwnPrice?r.price_usd:(lookup??null)};
+      });
+    }
+  }
+
   const models=[...new Set(rows.map(r=>r.model).filter(Boolean))].sort();
-  $("modelFilter").innerHTML='<option value="">Tất cả Model</option>'+models.map(m=>`<option>${escapeHtml(m)}</option>`).join("");
-  updateStats();renderTable();
+  $("modelFilter").innerHTML='<option value="">Tất cả Model</option>'+
+    models.map(m=>`<option>${escapeHtml(m)}</option>`).join("");
+  updateStats();
+  renderTable();
 }
 async function loadReport(){
   $("reportPanel").style.display="block";$("dataPanel").style.display="none";
@@ -293,25 +322,48 @@ function updateStats(){
 }
 function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function renderTable(){
-  const q=$("search").value.toLowerCase(),mf=$("modelFilter").value,c=config[currentTab];
-  const searchColumns=currentTab==="BOM"?[["model"],["parent_code"],["material"],["material_type"],["material_description"],["qty"],["price_usd"]]:c.columns;
-  const filtered=rows.filter(r=>(!mf||r.model===mf)&&searchColumns.some(([k])=>String(r[k]??"").toLowerCase().includes(q)));
-  if(!filtered.length){$("tbody").innerHTML=`<tr><td class="empty" colspan="${(currentTab==="BOM"?7:c.columns.length)+1}">Không có dữ liệu</td></tr>`;return}
+  const q=$("search").value.toLowerCase();
+  const mf=$("modelFilter").value;
+  const c=config[currentTab];
+  const displayColumns=currentTab==="BOM"
+    ? [["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],
+       ["material_type","Material Type"],["material_description","Material Description"],
+       ["qty","Q'ty"],["price_usd","Giá (USD)"]]
+    : c.columns;
+
+  const filtered=rows.filter(r=>
+    (!mf||r.model===mf) &&
+    displayColumns.some(([k])=>String(r[k]??"").toLowerCase().includes(q))
+  );
+  if(!filtered.length){
+    $("tbody").innerHTML=`<tr><td class="empty" colspan="${displayColumns.length+1}">Không có dữ liệu</td></tr>`;
+    return;
+  }
+
   $("tbody").innerHTML=filtered.map(r=>{
-    const displayColumns=currentTab==="BOM"?[["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],["material_type","Material Type"],["material_description","Material Description"],["qty","Qty"],["price_usd","Giá (USD)"]]:c.columns;
     const cells=displayColumns.map(([k])=>{
-      let val=r[k]??"";
-      if(["price_usd","excess_cost_usd"].includes(k))val=fmtMoney(val);
-       else if(["qty","actual_qty","excess_qty"].includes(k))val=fmt(val);
+      let val=r[k];
+      if(val===null || val===undefined || val===""){
+        val=(currentTab==="BOM" && k==="price_usd")?"Chưa có giá":"";
+      }else if(["price_usd","excess_cost_usd"].includes(k)){
+        val=fmtMoney(val);
+      }else if(["qty","actual_qty","excess_qty"].includes(k)){
+        val=fmt(val);
+      }
       if(k==="excess_qty")return `<td><span class="pill ${Number(val)>0?"over":""}">${escapeHtml(val)}</span></td>`;
       if(k==="bom_status")return `<td><span class="pill ${r.bom_found?"":"over"}">${r.bom_found?"Đã khớp":"Chưa có BOM"}</span></td>`;
       return `<td>${escapeHtml(val)}</td>`;
     }).join("");
     const buttons=`<button class="secondary" data-edit="${r.id}">Sửa</button> <button class="danger" data-delete="${r.id}">Xóa</button>`;
-    return `<tr>${cells}<td>${buttons||"—"}</td></tr>`;
+    return `<tr>${cells}<td>${buttons}</td></tr>`;
   }).join("");
-  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openModal(rows.find(r=>r.id===b.dataset.edit)));
-  document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteRow(b.dataset.delete));
+
+  document.querySelectorAll("[data-edit]").forEach(b=>
+    b.onclick=()=>openModal(rows.find(r=>String(r.id)===b.dataset.edit))
+  );
+  document.querySelectorAll("[data-delete]").forEach(b=>
+    b.onclick=()=>deleteRow(b.dataset.delete)
+  );
 }
 function openModal(row=null){
   editingId=row?.id||null;const c=config[currentTab];$("modalTitle").textContent=(row?"Sửa ":"Thêm ")+c.title;
