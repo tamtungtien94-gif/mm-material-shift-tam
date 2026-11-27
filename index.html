@@ -98,6 +98,17 @@ tr:last-child td{border-bottom:0}td.num{text-align:right;font-variant-numeric:ta
       <input id="dateFrom" type="date" class="hidden"><input id="dateTo" type="date" class="hidden">
     </div>
     <div class="tablewrap"><table id="dataTable"><thead id="thead"></thead><tbody id="tbody"><tr><td class="empty">Đang tải dữ liệu...</td></tr></tbody></table></div>
+    <div class="toolbar" id="paginationBar" style="justify-content:space-between;margin-top:12px;margin-bottom:0">
+      <div style="display:flex;align-items:center;gap:8px"><span class="hint" style="margin:0">Số dòng mỗi trang</span>
+        <select id="pageSize" style="width:90px"><option value="50">50</option><option value="100">100</option><option value="200">200</option></select>
+        <span class="hint" id="pageInfo" style="margin:0"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button type="button" class="secondary" id="prevPage">Trước</button>
+        <span class="hint" id="pageNumbers" style="margin:0;min-width:70px;text-align:center"></span>
+        <button type="button" class="secondary" id="nextPage">Sau</button>
+      </div>
+    </div>
     <p class="hint" id="footHint">Nhập làm tăng tồn; Xuất làm giảm tồn. Tồn được tính từ toàn bộ lịch sử giao dịch.</p>
   </section>
 </main>
