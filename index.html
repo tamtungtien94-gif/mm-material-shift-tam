@@ -48,6 +48,7 @@ td.num{padding-right:16px;font-weight:500}td.empty{text-align:center;color:var(-
 .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:12px;color:#475467;font-weight:700}
 .dialogfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 #loginBox{max-width:420px;margin:8vh auto}.loginfields{display:grid;gap:10px}
+.permission-table th,.permission-table td{text-align:center;padding:9px 8px}.permission-table th:first-child,.permission-table td:first-child{text-align:left}.permission-table input[type=checkbox]{width:18px;height:18px;min-width:18px;accent-color:#2563eb;cursor:pointer}.permission-table input:disabled{cursor:not-allowed;opacity:.25}
 @media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.topline{align-items:flex-start}.tabs{width:100%}.tab{flex:1;padding:10px 8px}}
 @media(max-width:700px){.inline-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.inline-grid{grid-template-columns:1fr}header{padding:14px}.wrap{padding:0 10px}.grid{grid-template-columns:1fr 1fr}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}}
@@ -70,6 +71,7 @@ td.num{padding-right:16px;font-weight:500}td.empty{text-align:center;color:var(-
       <button class="tab" data-tab="RMA">RMA</button>
       <button class="tab" data-tab="HISTORY">LỊCH SỬ</button>
       <button class="tab" data-tab="CODE">CODE</button>
+      <button class="tab hidden" id="accountsTab" data-tab="ACCOUNTS">TÀI KHOẢN</button>
     </nav>
     <div class="actions" id="actions">
       <button class="secondary" id="templateBtn">Tải file mẫu Excel</button>
@@ -115,7 +117,17 @@ td.num{padding-right:16px;font-weight:500}td.empty{text-align:center;color:var(-
     </div>
     <p class="hint" id="footHint">Nhập làm tăng tồn; Xuất làm giảm tồn. Tồn được tính từ toàn bộ lịch sử giao dịch.</p>
   </section>
+  <section class="panel hidden" id="accountsPanel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div><h2>QUẢN LÝ TÀI KHOẢN & PHÂN QUYỀN</h2><p class="hint">Chỉ quản lý các tài khoản đã tồn tại. Không tạo tài khoản mới, không đổi mật khẩu tại đây.</p></div>
+      <button class="secondary" id="backFromAccounts">Quay lại TỒN</button>
+    </div>
+    <div class="toolbar"><input id="accountSearch" type="search" placeholder="Tìm mã nhân viên, họ tên hoặc Gmail..."><button class="secondary" id="reloadAccountsBtn">Làm mới danh sách</button></div>
+    <div class="tablewrap"><table style="min-width:850px"><thead><tr><th>Mã nhân viên</th><th>Họ tên</th><th>Gmail đăng nhập</th><th>Trạng thái</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead><tbody id="accountsBody"><tr><td colspan="6" class="empty">Chưa tải danh sách</td></tr></tbody></table></div>
+    <p class="hint" style="margin-top:12px">Khóa tài khoản sẽ chặn quyền truy cập dữ liệu qua hàm mm_is_active() / RLS. Không xóa tài khoản Auth hoặc dữ liệu kho.</p>
+  </section>
 </main>
+<div class="modal" id="accountModal"><div class="dialog" style="width:min(980px,100%)"><h2 id="accountModalTitle">Phân quyền tài khoản</h2><form id="accountForm"><div class="formgrid"><div class="field"><label>Mã nhân viên</label><input name="employee_id" readonly></div><div class="field"><label>Họ và tên</label><input name="full_name" required maxlength="120"></div><div class="field full"><label>Gmail đăng nhập (không thể thay đổi tại đây)</label><input name="email" type="email" readonly></div><div class="field"><label>Trạng thái tài khoản</label><select name="is_active"><option value="true">Đang hoạt động</option><option value="false">Đã khóa</option></select></div></div><div class="toolbar" style="margin-top:16px"><button type="button" class="secondary" id="selectAllPermissions">Chọn tất cả quyền</button><button type="button" class="secondary" id="clearAllPermissions">Bỏ tất cả quyền</button></div><h3>Phân quyền theo tab</h3><p class="hint">Đánh dấu từng thao tác được phép. Quyền Excel điều khiển xuất file; quyền nhập/xuất/sửa/xóa còn được kiểm tra ở Supabase RLS.</p><div class="tablewrap"><table class="permission-table" style="min-width:760px"><thead><tr><th>Tab</th><th>Xem</th><th>Nhập</th><th>Xuất</th><th>Sửa</th><th>Xóa</th><th>Excel</th><th>Thêm</th></tr></thead><tbody id="permissionMatrix"></tbody></table></div><div class="dialogfoot"><button type="button" class="secondary" id="cancelAccountBtn">Hủy</button><button type="submit" id="saveAccountBtn">Lưu phân quyền</button></div></form></div></div>
 <div class="modal" id="modal"><div class="dialog"><h2 id="modalTitle">Thêm dữ liệu</h2><form id="dataForm"><div id="formFields" class="formgrid"></div><div class="dialogfoot"><button type="button" class="secondary" id="cancelBtn">Hủy</button><button type="submit">Lưu dữ liệu</button></div></form></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -257,9 +269,9 @@ function render(){
  $("tbody").innerHTML=visibleData.map(r=>{
   if(currentTab==="STOCK"){const selectedArea=$("areaFilter").value==="THÀNH PHẨM"?"TP":$("areaFilter").value;const vals=selectedArea?[{label:selectedArea,value:r[selectedArea==="TP"?"FG":selectedArea]}]:[{label:"REAR",value:r.REAR},{label:"TP",value:r.FG},{label:"WD",value:r.WD},{label:"RMA",value:r.RMA}];const total=selectedArea?vals[0].value:r.total;return `<tr><td>${esc(r.model||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td>${vals.map(v=>`<td class="num">${fmt(v.value)}</td>`).join("")}<td class="num"><b>${fmt(total)}</b></td></tr>`;}
   if(["REAR","FG","WD","RMA"].includes(currentTab)){const cols=typeOptionsForArea(tabInfo[currentTab].area);return `<tr><td>${esc(r.model)}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td>${cols.map(x=>`<td class="num">${fmt(r.byType[x]||0)}</td>`).join("")}<td class="num"><b>${fmt(r.total)}</b></td></tr>`;}
-  if(currentTab==="CODE")return `<tr><td>${esc(r.code_total||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td>${esc(r.model||"")}</td><td>${esc((r.created_at||"").slice(0,10))}</td><td><button class="secondary" data-edit-code="${esc(r.code)}">Sửa</button> <button class="danger" data-del-code="${esc(r.code)}">Xóa</button></td></tr>`;
+  if(currentTab==="CODE")return `<tr><td>${esc(r.code_total||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td>${esc(r.model||"")}</td><td>${esc((r.created_at||"").slice(0,10))}</td><td>${can("CODE","edit")?`<button class="secondary" data-edit-code="${esc(r.code)}">Sửa</button>`:""} ${can("CODE","delete")?`<button class="danger" data-del-code="${esc(r.code)}">Xóa</button>`:""}</td></tr>`;
   const noTotal=["REAR","WD","RMA"].includes(currentTab);
-  return `<tr><td>${esc(r.trans_date)}</td><td>${esc(r.area)}</td><td><b>${esc(r.code)}</b></td>${noTotal?"":`<td>${esc(r.code_total||"")}</td>`}<td>${esc(cm.get(r.code)||"")}</td><td class="num">${fmt(r.qty)}</td><td>${esc(r.item_type)}</td><td><span class="badge ${r.movement==="Nhập"?"in":"out"}">${esc(r.movement)}</span></td><td>${esc(r.remark)}</td>${currentTab==="HISTORY"?"":`<td><button class="secondary" data-edit-tx="${r.id}">Sửa</button> <button class="danger" data-del-tx="${r.id}">Xóa</button></td>`}</tr>`;
+  return `<tr><td>${esc(r.trans_date)}</td><td>${esc(r.area)}</td><td><b>${esc(r.code)}</b></td>${noTotal?"":`<td>${esc(r.code_total||"")}</td>`}<td>${esc(cm.get(r.code)||"")}</td><td class="num">${fmt(r.qty)}</td><td>${esc(r.item_type)}</td><td><span class="badge ${r.movement==="Nhập"?"in":"out"}">${esc(r.movement)}</span></td><td>${esc(r.remark)}</td>${currentTab==="HISTORY"?"":`<td>${can(currentTab,"edit")?`<button class="secondary" data-edit-tx="${r.id}">Sửa</button>`:""} ${can(currentTab,"delete")?`<button class="danger" data-del-tx="${r.id}">Xóa</button>`:""}</td>`}</tr>`;
  }).join("");
  document.querySelectorAll("[data-edit-code]").forEach(b=>b.onclick=()=>openCode(codes.find(x=>x.code===b.dataset.editCode)));
  document.querySelectorAll("[data-del-code]").forEach(b=>b.onclick=()=>deleteCode(b.dataset.delCode));
@@ -278,6 +290,7 @@ function field(label,name,type="text",value="",required=true,opts=null){
  return `<div class="field"><label>${label}</label>${control}</div>`;
 }
 function openCode(row=null){
+ if(row?!can("CODE","edit"):!can("CODE","add")){notify("Bạn không có quyền thao tác Code này.",true);return;}
  editId=row?.code||null;$("modalTitle").textContent=row?"Sửa Code":"Thêm Code";
  $("formFields").innerHTML=field("Code tổng (nhiều mã, phân cách bằng dấu phẩy hoặc xuống dòng)","code_totals","text",(row?.code_totals||codeLinks.filter(x=>x.code===row?.code).map(x=>x.code_total)).join(", "),false)+field("Code","code","text",row?.code||"")+field("Des","description","text",row?.description||"",false)+field("MODEL","model","text",row?.model||"",false);
  if(row){const codeInput=$("formFields").querySelector('[name="code"]');if(codeInput)codeInput.readOnly=true;}
@@ -302,6 +315,7 @@ function bindAutocomplete(root){
  });
 }
 function openTx(row=null){
+ if(row?!can(currentTab,"edit"):!(can(currentTab,"in")||can(currentTab,"out"))){notify("Bạn không có quyền thao tác giao dịch này.",true);return;}
  editId=row?.id||null;const area=row?.area||tabInfo[currentTab].area;
  $("entryTitle").textContent=row?"Sửa giao dịch "+area:"Nhập giao dịch "+area;
  const showTotal=! ["REAR","WD","RMA"].includes(currentTab);
@@ -317,12 +331,14 @@ function openTx(row=null){
 }
 function closeModal(){$("modal").classList.remove("open");editId=null}
 async function deleteCode(code){
+ if(!can("CODE","delete")){notify("Bạn không có quyền xóa Code.",true);return;}
  if(!confirm("Xóa Code "+code+"? Chỉ xóa được khi Code chưa có giao dịch."))return;
  const {error:linkError}=await db.from("code_total_links").delete().eq("code",code);
  const {error}=linkError?{error:linkError}:await db.from("code_master").delete().eq("code",code);
  if(error)notify(error.message,true);else{notify("Đã xóa Code.");await loadAll()}
 }
 async function deleteTx(id){
+ if(!can(currentTab,"delete")){notify("Bạn không có quyền xóa giao dịch.",true);return;}
  if(!confirm("Xóa giao dịch này? Tồn sẽ được tính lại."))return;
  const {error}=await db.from("stock_transactions").delete().eq("id",id);
  if(error)notify(error.message,true);else{notify("Đã xóa giao dịch.");await loadAll()}
@@ -330,7 +346,7 @@ async function deleteTx(id){
 $("dataForm").onsubmit=saveForm;
 $("inlineForm").onsubmit=saveForm;
 async function saveForm(e){
- e.preventDefault();const f=new FormData(e.target),v=Object.fromEntries(f.entries());let result;
+ e.preventDefault();if(e.target.dataset.kind==="code"){if(editId?!can("CODE","edit"):!can("CODE","add")){notify("Bạn không có quyền lưu Code.",true);return;}}else{const action=editId?"edit":(new FormData(e.target).get("movement")==="Nhập"?"in":"out");if(!can(currentTab,action)){notify("Bạn không có quyền thực hiện thao tác này.",true);return;}}const f=new FormData(e.target),v=Object.fromEntries(f.entries());let result;
  if(e.target.dataset.kind==="code"){
   const code=v.code.trim().toUpperCase();
   const totals=[...new Set(String(v.code_totals||"").split(/[\n,;]+/).map(x=>x.trim().toUpperCase()).filter(Boolean))];
@@ -414,6 +430,8 @@ function exportExcel(){
 }
 function valOf(row,names){for(const name of names){if(row[name]!==undefined&&row[name]!==null&&String(row[name]).trim()!=="")return row[name]}return ""}
 async function importExcel(file){
+ const importAllowed=currentTab==="CODE"?(can("CODE","add")||can("CODE","edit")):( ["REAR","FG","WD","RMA"].includes(currentTab)&&(can(currentTab,"in")||can(currentTab,"out")) );
+ if(!importAllowed){notify("Bạn không có quyền import Excel ở tab này.",true);$("excelFile").value="";return;}
  const data=await file.arrayBuffer(),wb=XLSX.read(data,{type:"array",cellDates:true}),ws=wb.Sheets[wb.SheetNames[0]],items=XLSX.utils.sheet_to_json(ws,{defval:""});
  if(!items.length){notify("File Excel không có dữ liệu.",true);return}
  const norm=x=>String(x||"").trim().toLowerCase().replace(/[\s_'’\-]/g,"");
@@ -449,20 +467,97 @@ async function importExcel(file){
 
 const ADMIN_EMAIL="tamtungtien95@gmail.com";
 const PERM_TABS=[ ["STOCK","TỒN"],["REAR","REAR"],["FG","THÀNH PHẨM"],["WD","WD"],["RMA","RMA"],["HISTORY","LỊCH SỬ"],["CODE","CODE"] ];
-let isAdmin=false, myPermissions={};
+const PERM_ACTIONS=[["view","Xem"],["in","Nhập"],["out","Xuất"],["edit","Sửa"],["delete","Xóa"],["excel","Excel"],["add","Thêm"]];
+let isAdmin=false, myPermissions={}, accountCache=[], editingAccountId=null, editingAccountRow=null;
 function can(tab,action){return isAdmin||myPermissions?.[tab]?.[action]===true;}
+function permissionAllowed(tab,action){
+ if(tab==="STOCK"||tab==="HISTORY") return ["view","excel"].includes(action);
+ if(tab==="CODE") return ["view","edit","delete","excel","add"].includes(action);
+ return ["view","in","out","edit","delete","excel"].includes(action);
+}
+function permissionMatrixHtml(perms={}){
+ return PERM_TABS.map(([key,label])=>`<tr><td><b>${label}</b></td>${PERM_ACTIONS.map(([action])=>{
+  const allowed=permissionAllowed(key,action),checked=!!perms?.[key]?.[action];
+  return `<td><input type="checkbox" data-perm-tab="${key}" data-perm-action="${action}" ${checked&&allowed?'checked':''} ${allowed?'':'disabled'} aria-label="${label} - ${action}"></td>`;
+ }).join('')}</tr>`).join('');
+}
+function readPermissionMatrix(){
+ const out={};
+ document.querySelectorAll('#permissionMatrix [data-perm-tab]').forEach(el=>{
+  const tab=el.dataset.permTab,action=el.dataset.permAction;
+  (out[tab]??={})[action]=!!el.checked;
+ });
+ return out;
+}
 async function loadMyPermissions(){
- isAdmin=(session?.user?.email||"").toLowerCase()===ADMIN_EMAIL;
+ isAdmin=(session?.user?.email||'').toLowerCase()===ADMIN_EMAIL;
+ $('accountsTab').classList.toggle('hidden',!isAdmin);
  if(isAdmin){myPermissions={};return;}
- const {data,error}=await db.from("employee_permissions").select("permissions").eq("user_id",session.user.id).maybeSingle();
- if(error){notify("Không tải được quyền: "+error.message,true);myPermissions={};return;}
+ const {data,error}=await db.from('employee_permissions').select('permissions').eq('user_id',session.user.id).maybeSingle();
+ if(error){notify('Không tải được quyền: '+error.message,true);myPermissions={};return;}
  myPermissions=data?.permissions||{};
- document.querySelectorAll(".tab[data-tab]").forEach(b=>{const k=b.dataset.tab;b.classList.toggle("hidden",!myPermissions?.[k]?.view);});
- const first=PERM_TABS.find(([k])=>myPermissions?.[k]?.view)?.[0];
+ document.querySelectorAll('.tab[data-tab]').forEach(b=>{const key=b.dataset.tab;if(key!=='ACCOUNTS')b.classList.toggle('hidden',!myPermissions?.[key]?.view);});
+ const first=PERM_TABS.find(([key])=>myPermissions?.[key]?.view)?.[0];
  if(first) setTab(first);
 }
+async function loadAccounts(){
+ if(!isAdmin)return;
+ const body=$('accountsBody');body.innerHTML='<tr><td colspan="6" class="empty">Đang tải danh sách...</td></tr>';
+ const {data,error}=await db.from('employee_accounts').select('user_id,employee_id,full_name,email,is_active,created_at').order('employee_id');
+ if(error){body.innerHTML=`<tr><td colspan="6" class="empty">${esc(error.message)}. Kiểm tra đã chạy SQL V14.2 bổ sung cột email và policy quản trị.</td></tr>`;return;}
+ accountCache=data||[];renderAccounts();
+}
+function renderAccounts(){
+ const q=$('accountSearch').value.trim().toLowerCase();
+ const rows=accountCache.filter(x=>String(x.employee_id||'').toLowerCase().includes(q)||String(x.full_name||'').toLowerCase().includes(q)||String(x.email||'').toLowerCase().includes(q));
+ $('accountsBody').innerHTML=rows.length?rows.map(x=>{
+  const admin=String(x.email||'').toLowerCase()===ADMIN_EMAIL;
+  return `<tr><td><b>${esc(x.employee_id)}</b></td><td>${esc(x.full_name||'')}</td><td>${esc(x.email||'')}</td><td><span class="badge ${x.is_active?'in':'out'}">${x.is_active?'Đang hoạt động':'Đã khóa'}</span>${admin?' <span class="badge">ADM</span>':''}</td><td>${esc(String(x.created_at||'').slice(0,10))}</td><td>${admin?'<span class="hint">Tài khoản quản trị – không chỉnh sửa</span>':`<button class="secondary" data-account-edit="${esc(x.user_id)}">Phân quyền</button> <button class="${x.is_active?'danger':'secondary'}" data-account-toggle="${esc(x.user_id)}">${x.is_active?'Khóa':'Mở khóa'}</button>`}</td></tr>`;
+ }).join(''):'<tr><td colspan="6" class="empty">Không tìm thấy tài khoản</td></tr>';
+ document.querySelectorAll('[data-account-edit]').forEach(b=>b.onclick=()=>editAccount(b.dataset.accountEdit));
+ document.querySelectorAll('[data-account-toggle]').forEach(b=>b.onclick=()=>toggleAccount(b.dataset.accountToggle));
+}
+async function editAccount(userId){
+ try{
+  const row=accountCache.find(x=>x.user_id===userId);if(!row)return;
+  const {data,error}=await db.from('employee_permissions').select('permissions').eq('user_id',userId).maybeSingle();
+  if(error)throw error;
+  editingAccountId=userId;editingAccountRow=row;
+  const form=$('accountForm');form.reset();
+  form.elements.employee_id.value=row.employee_id||'';form.elements.full_name.value=row.full_name||'';form.elements.email.value=row.email||'';form.elements.is_active.value=String(!!row.is_active);
+  $('accountModalTitle').textContent='Phân quyền: '+(row.full_name||row.employee_id);
+  $('permissionMatrix').innerHTML=permissionMatrixHtml(data?.permissions||{});
+  $('accountModal').classList.add('open');
+ }catch(e){notify(e.message||String(e),true);}
+}
+async function saveAccountPermissions(e){
+ e.preventDefault();if(!isAdmin||!editingAccountId||!editingAccountRow)return;
+ const form=new FormData(e.target),fullName=String(form.get('full_name')||'').trim(),isActive=form.get('is_active')==='true';
+ if(!fullName){notify('Vui lòng nhập họ tên.',true);return;}
+ if(String(editingAccountRow.email||'').toLowerCase()===ADMIN_EMAIL){notify('Không chỉnh sửa tài khoản ADM tại đây.',true);return;}
+ const permissions=readPermissionMatrix();
+ $('saveAccountBtn').disabled=true;
+ try{
+  const {error:profileError}=await db.from('employee_accounts').update({full_name:fullName,is_active:isActive}).eq('user_id',editingAccountId);
+  if(profileError)throw profileError;
+  const {error:permError}=await db.from('employee_permissions').upsert({user_id:editingAccountId,permissions,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+  if(permError)throw permError;
+  $('accountModal').classList.remove('open');editingAccountId=null;editingAccountRow=null;
+  notify('Đã lưu thông tin và phân quyền tài khoản.');await loadAccounts();
+ }catch(err){notify('Không lưu được: '+(err.message||String(err)),true);}
+ finally{$('saveAccountBtn').disabled=false;}
+}
+async function toggleAccount(userId){
+ const row=accountCache.find(x=>x.user_id===userId);if(!row)return;
+ if(String(row.email||'').toLowerCase()===ADMIN_EMAIL){notify('Không thể khóa tài khoản ADM.',true);return;}
+ const active=!row.is_active;
+ if(!confirm(`${active?'Mở khóa':'Khóa'} tài khoản ${row.employee_id} (${row.email})?`))return;
+ const {error}=await db.from('employee_accounts').update({is_active:active}).eq('user_id',userId);
+ if(error){notify('Không thể cập nhật trạng thái: '+error.message,true);return;}
+ notify(`Đã ${active?'mở khóa':'khóa'} tài khoản ${row.employee_id}.`);await loadAccounts();
+}
 function updatePermissionControls(){
- const tab=currentTab, areaTab=["REAR","FG","WD","RMA"].includes(tab);
+ const tab=currentTab,areaTab=["REAR","FG","WD","RMA"].includes(tab);
  const canAdd=tab==="CODE"?can("CODE","add"):(areaTab&&(can(tab,"in")||can(tab,"out")));
  $("addBtn").classList.toggle("hidden",!canAdd);
  $("exportBtn").classList.toggle("hidden",!can(tab,"excel"));
@@ -472,14 +567,30 @@ function updatePermissionControls(){
  $("actions").querySelector('label[for="excelFile"]').classList.toggle("hidden",!importAllowed);
  const entryAllowed=areaTab&&(can(tab,"in")||can(tab,"out"));
  $("entryPanel").classList.toggle("hidden",!entryAllowed);
- const submit=$("inlineForm").querySelector('button[type="submit"]');
- if(submit)submit.disabled=!entryAllowed;
+ const submit=$("inlineForm").querySelector('button[type="submit"]');if(submit)submit.disabled=!entryAllowed;
+}
+function setAccountTab(){
+ currentTab='ACCOUNTS';document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='ACCOUNTS'));
+ $('accountsPanel').classList.remove('hidden');
+ document.querySelectorAll('#app > .topline,#app > .notice,#stats,#app > .panel:not(#accountsPanel)').forEach(x=>x.classList.add('hidden'));
+ $('actions').classList.add('hidden');loadAccounts();
 }
 const originalSetTab=setTab;
 setTab=function(tab){
- if(!isAdmin&&!myPermissions?.[tab]?.view){notify("Bạn không có quyền xem tab này.",true);return;}
- originalSetTab(tab);updatePermissionControls();
+ if(tab==='ACCOUNTS'){if(!isAdmin){notify('Chỉ ADM được quản lý tài khoản.',true);return;}setAccountTab();return;}
+ if(!isAdmin&&!myPermissions?.[tab]?.view){notify('Bạn không có quyền xem tab này.',true);return;}
+ $('accountsPanel').classList.add('hidden');
+ document.querySelectorAll('#app > .topline,#app > .notice,#stats,#app > .panel:not(#accountsPanel)').forEach(x=>x.classList.remove('hidden'));
+ $('actions').classList.remove('hidden');originalSetTab(tab);updatePermissionControls();
 };
+$('backFromAccounts').onclick=()=>setTab('STOCK');
+$('reloadAccountsBtn').onclick=loadAccounts;
+$('accountSearch').oninput=renderAccounts;
+$('accountForm').onsubmit=saveAccountPermissions;
+$('cancelAccountBtn').onclick=()=>{$('accountModal').classList.remove('open');editingAccountId=null;editingAccountRow=null;};
+$('accountModal').onclick=e=>{if(e.target===$('accountModal'))$('cancelAccountBtn').click();};
+$('selectAllPermissions').onclick=()=>document.querySelectorAll('#permissionMatrix input[type=checkbox]:not(:disabled)').forEach(x=>x.checked=true);
+$('clearAllPermissions').onclick=()=>document.querySelectorAll('#permissionMatrix input[type=checkbox]').forEach(x=>x.checked=false);
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 $("loginBtn").onclick=async()=>{
  const email=$("email").value.trim().toLowerCase();
