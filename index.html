@@ -38,7 +38,7 @@ tr:last-child td{border-bottom:0}td.num{text-align:right;font-variant-numeric:ta
 .inline-grid .field{display:flex;flex-direction:column;gap:6px}.inline-grid .field label{font-size:12px;color:#475467;font-weight:700}
 .autocomplete{position:relative}.suggestions{position:absolute;z-index:20;left:0;right:0;top:100%;max-height:220px;overflow:auto;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px #10182820;display:none}.suggestions.show{display:block}.suggestion{padding:9px 11px;cursor:pointer;border-bottom:1px solid #eef2f6;font-size:13px}.suggestion:last-child{border-bottom:0}.suggestion:hover{background:#eff6ff}.suggestion small{color:#667085;margin-left:8px}
 .inline-grid input,.inline-grid select{width:100%;height:40px;background:#fff}.entry-actions{display:flex;justify-content:flex-end;margin-top:13px}
-.hidden{display:none!important}.notice{padding:11px 13px;border-radius:9px;margin:0 0 14px;background:#eff6ff;color:#1d4ed8}
+.hidden{display:none!important}#paginationBar button{padding:8px 11px}#paginationBar .hint{font-size:12px}.notice{padding:11px 13px;border-radius:9px;margin:0 0 14px;background:#eff6ff;color:#1d4ed8}
 .error{background:#fef3f2;color:#b42318}.success{background:#ecfdf3;color:#027a48}
 .modal{position:fixed;inset:0;background:#10182888;display:none;align-items:center;justify-content:center;padding:18px;z-index:10}
 .modal.open{display:flex}.dialog{background:#fff;border-radius:14px;padding:20px;width:min(560px,100%);max-height:90vh;overflow:auto}
@@ -121,6 +121,7 @@ const tabInfo={
  CODE:{title:"DANH MỤC CODE",desc:"Quản lý mã Code và mô tả."}
 };
 let db=null,session=null,currentTab="STOCK",codes=[],codeLinks=[],transactions=[],editId=null;
+let currentPage=1,pageSize=50;
 function notify(msg,error=false){const el=$("message");el.textContent=msg;el.className="notice "+(error?"error":"success");el.classList.remove("hidden");}
 function hideNotify(){$("message").classList.add("hidden")}
 function n(v){const x=Number(v||0);return Number.isFinite(x)?x:0}
@@ -196,9 +197,16 @@ function render(){
   }
  }
  $("thead").innerHTML="<tr>"+headers.map(h=>`<th>${h}</th>`).join("")+(currentTab==="STOCK"||currentTab==="HISTORY"?"":"<th>Thao tác</th>")+"</tr>";
+ const totalRows=data.length,totalPages=Math.max(1,Math.ceil(totalRows/pageSize));
+ currentPage=Math.min(Math.max(1,currentPage),totalPages);
+ const startIndex=(currentPage-1)*pageSize,visibleData=data.slice(startIndex,startIndex+pageSize);
+ $("pageSize").value=String(pageSize);
+ $("pageInfo").textContent=totalRows?`${startIndex+1}-${Math.min(startIndex+pageSize,totalRows)} / ${totalRows} dòng`:"0 dòng";
+ $("pageNumbers").textContent=`Trang ${currentPage} / ${totalPages}`;
+ $("prevPage").disabled=currentPage<=1;$("nextPage").disabled=currentPage>=totalPages;
  if(!data.length){$("tbody").innerHTML=`<tr><td class="empty" colspan="${headers.length+(currentTab==="STOCK"||currentTab==="HISTORY"?0:1)}">Không có dữ liệu</td></tr>`;updateStats();return}
  const cm=codeMap();
- $("tbody").innerHTML=data.map(r=>{
+ $("tbody").innerHTML=visibleData.map(r=>{
   if(currentTab==="STOCK"){const selectedArea=$("areaFilter").value==="THÀNH PHẨM"?"TP":$("areaFilter").value;const vals=selectedArea?[{label:selectedArea,value:r[selectedArea==="TP"?"FG":selectedArea]}]:[{label:"REAR",value:r.REAR},{label:"TP",value:r.FG},{label:"WD",value:r.WD},{label:"RMA",value:r.RMA}];const total=selectedArea?vals[0].value:r.total;return `<tr><td>${esc(r.model||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td>${vals.map(v=>`<td class="num">${fmt(v.value)}</td>`).join("")}<td class="num"><b>${fmt(total)}</b></td></tr>`;}
   if(currentTab==="CODE")return `<tr><td>${esc(r.code_total||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td>${esc(r.model||"")}</td><td>${esc((r.created_at||"").slice(0,10))}</td><td><button class="secondary" data-edit-code="${esc(r.code)}">Sửa</button> <button class="danger" data-del-code="${esc(r.code)}">Xóa</button></td></tr>`;
   const noTotal=["REAR","WD","RMA"].includes(currentTab);
@@ -369,7 +377,15 @@ $("logoutBtn").onclick=()=>db.auth.signOut();
 $("addBtn").onclick=()=>currentTab==="CODE"?openCode():openTx();
 $("cancelBtn").onclick=closeModal;$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};
 $("clearEntryBtn").onclick=()=>openTx(null);
-$("refreshBtn").onclick=loadAll;$("search").oninput=render;$("areaFilter").onchange=render;$("typeFilter").onchange=render;$("dateFrom").onchange=render;$("dateTo").onchange=render;
+$("refreshBtn").onclick=loadAll;
+$("search").oninput=()=>{currentPage=1;render()};
+$("areaFilter").onchange=()=>{currentPage=1;render()};
+$("typeFilter").onchange=()=>{currentPage=1;render()};
+$("dateFrom").onchange=()=>{currentPage=1;render()};
+$("dateTo").onchange=()=>{currentPage=1;render()};
+$("pageSize").onchange=()=>{pageSize=Number($("pageSize").value)||50;currentPage=1;render()};
+$("prevPage").onclick=()=>{if(currentPage>1){currentPage--;render()}};
+$("nextPage").onclick=()=>{currentPage++;render()};
 $("templateBtn").onclick=downloadTemplate;$("exportBtn").onclick=exportExcel;
 $("excelFile").onchange=e=>{if(e.target.files[0])importExcel(e.target.files[0])};
 init();
