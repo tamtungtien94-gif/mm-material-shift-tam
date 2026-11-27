@@ -230,8 +230,8 @@ function bindAutocomplete(root){
   const update=()=>{
    const q=input.value.trim().toLowerCase();let values=[];
    if(kind==="code") values=codes.filter(c=>!q||c.code.toLowerCase().includes(q)).slice(0,30).map(c=>({value:c.code,detail:c.model||c.description||""}));
-   else {const code=root.querySelector('[name="code"]')?.value.trim().toUpperCase()||"";values=codeLinks.filter(x=>x.code===code&&(!q||x.code_total.toLowerCase().includes(q))).slice(0,30).map(x=>({value:x.code_total,detail:"Code tổng của "+code}));}
-   box.innerHTML=values.length?values.map(x=>`<div class="suggestion" data-value="${esc(x.value)}">${esc(x.value)} <small>${esc(x.detail)}</small></div>`).join(""):`<div class="suggestion">Không tìm thấy gợi ý</div>`;
+   else {const code=root.querySelector('[name="code"]')?.value.trim().toUpperCase()||"";values=codeLinks.filter(x=>x.code===code&&(!q||x.code_total.toLowerCase().includes(q))).slice(0,30).map(x=>({value:x.code_total,detail:""}));}
+   box.innerHTML=values.length?values.map(x=>`<div class="suggestion" data-value="${esc(x.value)}">${esc(x.value)}${x.detail?` <small>${esc(x.detail)}</small>`:""}</div>`).join(""):`<div class="suggestion">Không tìm thấy gợi ý</div>`;
    box.classList.add("show");
   };
   input.addEventListener("input",update);input.addEventListener("focus",update);
