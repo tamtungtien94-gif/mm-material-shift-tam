@@ -93,7 +93,7 @@ tr:last-child td{border-bottom:0}td.num{text-align:right;font-variant-numeric:ta
     </div>
     <div class="toolbar">
       <input id="search" type="search" placeholder="Tìm theo Code hoặc mô tả...">
-      <select id="areaFilter"><option value="">Tất cả khu vực</option><option>REAR</option><option>THÀNH PHẨM</option><option>WD</option><option>RMA</option></select>
+      <select id="areaFilter"><option value="">Tất cả khu vực</option><option>REAR</option><option value="THÀNH PHẨM">TP</option><option>WD</option><option>RMA</option></select>
       <select id="typeFilter"><option value="">Tất cả loại</option><option>OK</option><option>NG</option><option>TP SX</option><option>TP WIP</option></select>
       <input id="dateFrom" type="date" class="hidden"><input id="dateTo" type="date" class="hidden">
     </div>
@@ -178,8 +178,8 @@ function render(){
  const q=$("search").value.trim().toLowerCase(),area=$("areaFilter").value,typ=$("typeFilter").value;
  let data=[],headers=[];
  if(currentTab==="STOCK"){
-  headers=["MODEL","Code","Des","REAR","THÀNH PHẨM","WD","RMA","Tổng tồn"];
-  data=stockSummary().filter(r=>(!area||({REAR:r.REAR, "THÀNH PHẨM":r.FG,WD:r.WD,RMA:r.RMA}[area]!==0))&&(!q||r.model.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||r.description.toLowerCase().includes(q)));
+  headers=["MODEL","Code","Des","REAR","TP","WD","RMA","Tổng tồn"];
+  data=stockSummary().filter(r=>(!area||({REAR:r.REAR, "TP":r.FG,WD:r.WD,RMA:r.RMA}[area]!==0))&&(!q||r.model.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||r.description.toLowerCase().includes(q)));
   $("footHint").textContent="Chỉ hiển thị Code còn tồn khác 0. Nhập cộng tồn, Xuất trừ tồn; có thể tìm một Code để xem tất cả khu vực.";
  }else if(currentTab==="CODE"){
   headers=["Code tổng","Code","Des","MODEL","Ngày tạo","Thao tác"];data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(total=>({...r,code_total:total,code_totals:totals}))}).filter(r=>!q||String(r.code_total||"").toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||String(r.description||"").toLowerCase().includes(q)||String(r.model||"").toLowerCase().includes(q));
@@ -311,7 +311,7 @@ function downloadTemplate(){
 }
 function exportExcel(){
  let data=[];
- if(currentTab==="STOCK")data=stockSummary().map(r=>({MODEL:r.model,Code:r.code,Des:r.description,REAR:r.REAR,"THÀNH PHẨM":r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total}));
+ if(currentTab==="STOCK")data=stockSummary().map(r=>({MODEL:r.model,Code:r.code,Des:r.description,REAR:r.REAR,"TP":r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total}));
  else if(currentTab==="CODE")data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(code_total=>({"Code tổng":code_total,Code:r.code,Des:r.description,MODEL:r.model||""}))});
  else data=transactions.filter(r=>currentTab==="HISTORY"||r.area===tabInfo[currentTab].area).map(r=>currentTab!=="HISTORY"&&["REAR","WD","RMA"].includes(currentTab)?({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}):({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Code tổng":r.code_total||"","Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}));
  const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,currentTab);XLSX.writeFile(wb,currentTab+"_Export.xlsx");
