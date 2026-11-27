@@ -32,6 +32,11 @@ th{background:#f8fafc;color:#475467;font-size:11px;text-transform:uppercase;lett
 tr:last-child td{border-bottom:0}td.num{text-align:right;font-variant-numeric:tabular-nums}td.empty{text-align:center;color:var(--muted);padding:28px}
 .badge{display:inline-block;padding:4px 8px;border-radius:20px;background:#eef2ff;color:#3448a5;font-size:11px;font-weight:700}
 .badge.in{background:#ecfdf3;color:#027a48}.badge.out{background:#fef3f2;color:#b42318}
+.entry-panel{border:1px solid #dbe5f2;background:#f8fbff;border-radius:11px;padding:15px;margin:14px 0 16px}
+.entry-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.entry-head h3{font-size:15px;margin:0 0 4px}.inline-grid{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:12px}
+.inline-grid .field{display:flex;flex-direction:column;gap:6px}.inline-grid .field label{font-size:12px;color:#475467;font-weight:700}
+.inline-grid input,.inline-grid select{width:100%;height:40px;background:#fff}.entry-actions{display:flex;justify-content:flex-end;margin-top:13px}
 .hidden{display:none!important}.notice{padding:11px 13px;border-radius:9px;margin:0 0 14px;background:#eff6ff;color:#1d4ed8}
 .error{background:#fef3f2;color:#b42318}.success{background:#ecfdf3;color:#027a48}
 .modal{position:fixed;inset:0;background:#10182888;display:none;align-items:center;justify-content:center;padding:18px;z-index:10}
@@ -40,7 +45,7 @@ tr:last-child td{border-bottom:0}td.num{text-align:right;font-variant-numeric:ta
 .dialogfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
 #loginBox{max-width:420px;margin:8vh auto}.loginfields{display:grid;gap:10px}
 @media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.topline{align-items:flex-start}.tabs{width:100%}.tab{flex:1;padding:10px 8px}}
-@media(max-width:520px){header{padding:14px}.wrap{padding:0 10px}.grid{grid-template-columns:1fr 1fr}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}}
+@media(max-width:700px){.inline-grid{grid-template-columns:1fr 1fr}}\n@media(max-width:520px){.inline-grid{grid-template-columns:1fr}header{padding:14px}.wrap{padding:0 10px}.grid{grid-template-columns:1fr 1fr}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}}
 </style>
 </head>
 <body>
@@ -81,6 +86,10 @@ tr:last-child td{border-bottom:0}td.num{text-align:right;font-variant-numeric:ta
       <div><h2 id="title">Tồn tổng hợp</h2><p class="hint" id="desc">Tổng hợp số lượng còn lại theo Code và khu vực.</p></div>
       <button id="refreshBtn" class="secondary">Làm mới</button>
     </div>
+    <div id="entryPanel" class="entry-panel hidden">
+      <div class="entry-head"><div><h3 id="entryTitle">Nhập giao dịch</h3><p class="hint">Nhập thông tin trực tiếp tại đây, không cần mở cửa sổ riêng.</p></div><button type="button" class="secondary" id="clearEntryBtn">Làm mới form</button></div>
+      <form id="inlineForm"><div id="inlineFields" class="inline-grid"></div><div class="entry-actions"><button type="submit">Lưu dữ liệu</button></div></form>
+    </div>
     <div class="toolbar">
       <input id="search" type="search" placeholder="Tìm theo Code hoặc mô tả...">
       <select id="areaFilter"><option value="">Tất cả khu vực</option><option>REAR</option><option>THÀNH PHẨM</option><option>WD</option><option>RMA</option></select>
@@ -116,7 +125,7 @@ function hideNotify(){$("message").classList.add("hidden")}
 function n(v){const x=Number(v||0);return Number.isFinite(x)?x:0}
 function fmt(v){return n(v).toLocaleString("en-US",{maximumFractionDigits:3})}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function today(){return new Date().toISOString().slice(0,10)}
+function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function signed(t){return t.movement==="Nhập"?n(t.qty):-n(t.qty)}
 function codeMap(){return new Map(codes.map(c=>[c.code,c.description||""]))}
 async function init(){
@@ -144,7 +153,9 @@ function setTab(tab){
  $("areaFilter").classList.toggle("hidden",!["STOCK","HISTORY"].includes(tab));
  $("typeFilter").classList.toggle("hidden",!["STOCK","HISTORY","REAR","FG","WD","RMA"].includes(tab));
  $("dateFrom").classList.toggle("hidden",tab!=="HISTORY");$("dateTo").classList.toggle("hidden",tab!=="HISTORY");
- $("addBtn").classList.toggle("hidden",tab==="STOCK"||tab==="HISTORY");
+ $("addBtn").classList.toggle("hidden",tab==="STOCK"||tab==="HISTORY"||["REAR","FG","WD","RMA"].includes(tab));
+ $("entryPanel").classList.toggle("hidden",!["REAR","FG","WD","RMA"].includes(tab));
+ if(["REAR","FG","WD","RMA"].includes(tab)) openTx(null);
  $("templateBtn").classList.toggle("hidden",tab==="STOCK"||tab==="HISTORY");
  $("excelFile").disabled=tab==="STOCK"||tab==="HISTORY";
  $("actions").querySelector('label[for="excelFile"]').classList.toggle("hidden",tab==="STOCK"||tab==="HISTORY");
@@ -208,14 +219,14 @@ function openCode(row=null){
  $("modal").classList.add("open");$("dataForm").dataset.kind="code";
 }
 function openTx(row=null){
- editId=row?.id||null;const area=tabInfo[currentTab].area;
- $("modalTitle").textContent=row?"Sửa giao dịch":`Thêm giao dịch ${area}`;
- $("formFields").innerHTML=field("Ngày","trans_date","date",row?.trans_date||today())+
+ editId=row?.id||null;const area=row?.area||tabInfo[currentTab].area;
+ $("entryTitle").textContent=row?"Sửa giao dịch "+area:"Nhập giao dịch "+area;
+ $("inlineFields").innerHTML=field("Ngày","trans_date","date",row?.trans_date||today())+
  field("Code","code","text",row?.code||"")+field("Q'ty","qty","number",row?.qty??1)+
  field("Loại","item_type","text",row?.item_type||"OK",true,typeOptions)+
  field("Tình trạng","movement","text",row?.movement||"Nhập",true,["Nhập","Xuất"])+
- field("Remark","remark","text",row?.remark||"",false)+`<input type="hidden" name="area" value="${esc(row?.area||area)}">`;
- $("modal").classList.add("open");$("dataForm").dataset.kind="tx";
+ field("Remark","remark","text",row?.remark||"",false)+`<input type="hidden" name="area" value="${esc(area)}">`;
+ $("inlineForm").dataset.kind="tx";$("entryPanel").classList.remove("hidden");
 }
 function closeModal(){$("modal").classList.remove("open");editId=null}
 async function deleteCode(code){
@@ -228,7 +239,9 @@ async function deleteTx(id){
  const {error}=await db.from("stock_transactions").delete().eq("id",id);
  if(error)notify(error.message,true);else{notify("Đã xóa giao dịch.");await loadAll()}
 }
-$("dataForm").onsubmit=async e=>{
+$("dataForm").onsubmit=saveForm;
+$("inlineForm").onsubmit=saveForm;
+async function saveForm(e){
  e.preventDefault();const f=new FormData(e.target),v=Object.fromEntries(f.entries());let result;
  if(e.target.dataset.kind==="code"){
   const code=v.code.trim().toUpperCase();
@@ -240,7 +253,7 @@ $("dataForm").onsubmit=async e=>{
   result=editId?await db.from("stock_transactions").update(v).eq("id",editId):await db.from("stock_transactions").insert(v);
  }
  if(result.error){notify(result.error.message,true);return}
- closeModal();notify("Đã lưu dữ liệu.");await loadAll();
+ if(e.target.id==="dataForm")closeModal();else{editId=null;openTx(null)}notify("Đã lưu dữ liệu.");await loadAll();
 };
 function templateRows(){
  if(currentTab==="CODE")return {name:"Mau_CODE",headers:["Code","Des","MODEL"],rows:[["GH02-29024A","TAPE INSULATION...","S958"]]};
@@ -290,6 +303,7 @@ $("loginBtn").onclick=async()=>{const {error}=await db.auth.signInWithPassword({
 $("logoutBtn").onclick=()=>db.auth.signOut();
 $("addBtn").onclick=()=>currentTab==="CODE"?openCode():openTx();
 $("cancelBtn").onclick=closeModal;$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};
+$("clearEntryBtn").onclick=()=>openTx(null);
 $("refreshBtn").onclick=loadAll;$("search").oninput=render;$("areaFilter").onchange=render;$("typeFilter").onchange=render;$("dateFrom").onchange=render;$("dateTo").onchange=render;
 $("templateBtn").onclick=downloadTemplate;$("exportBtn").onclick=exportExcel;
 $("excelFile").onchange=e=>{if(e.target.files[0])importExcel(e.target.files[0])};
