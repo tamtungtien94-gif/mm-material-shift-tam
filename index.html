@@ -29,7 +29,10 @@ input[type=search]{min-width:220px;flex:1}
 table{width:100%;border-collapse:collapse;min-width:850px;background:#fff}
 th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
 th{background:#f8fafc;color:#475467;font-size:11px;text-transform:uppercase;letter-spacing:.3px;position:sticky;top:0}
-tr:last-child td{border-bottom:0}td.num{text-align:right;font-variant-numeric:tabular-nums}td.empty{text-align:center;color:var(--muted);padding:28px}
+tr:last-child td{border-bottom:0}
+th.num,td.num{text-align:right!important;font-variant-numeric:tabular-nums;min-width:88px;width:88px}
+th.num{padding-right:16px}
+td.num{padding-right:16px;font-weight:500}td.empty{text-align:center;color:var(--muted);padding:28px}
 .badge{display:inline-block;padding:4px 8px;border-radius:20px;background:#eef2ff;color:#3448a5;font-size:11px;font-weight:700}
 .badge.in{background:#ecfdf3;color:#027a48}.badge.out{background:#fef3f2;color:#b42318}
 .entry-panel{border:1px solid #dbe5f2;background:#f8fbff;border-radius:11px;padding:15px;margin:14px 0 16px}
@@ -94,7 +97,7 @@ tr:last-child td{border-bottom:0}td.num{text-align:right;font-variant-numeric:ta
     <div class="toolbar">
       <input id="search" type="search" placeholder="Tìm theo Code hoặc mô tả...">
       <select id="areaFilter"><option value="">Tất cả khu vực</option><option>REAR</option><option value="THÀNH PHẨM">TP</option><option>WD</option><option>RMA</option></select>
-      <select id="typeFilter"><option value="">Tất cả loại</option><option>OK</option><option>NG</option><option>TP SX</option><option>TP WIP</option></select>
+      <select id="typeFilter"><option value="">Tất cả loại</option><option>OK</option><option>NG</option><option>TP SX</option><option>TP WIP</option><option>IQC</option><option>UPK</option></select>
       <input id="dateFrom" type="date" class="hidden"><input id="dateTo" type="date" class="hidden">
     </div>
     <div class="tablewrap"><table id="dataTable"><thead id="thead"></thead><tbody id="tbody"><tr><td class="empty">Đang tải dữ liệu...</td></tr></tbody></table></div>
@@ -121,7 +124,12 @@ const SUPABASE_URL=window.MM_CONFIG?.SUPABASE_URL||"";
 const SUPABASE_KEY=window.MM_CONFIG?.SUPABASE_PUBLISHABLE_KEY||"";
 const $=id=>document.getElementById(id);
 const areas={REAR:"REAR",FG:"THÀNH PHẨM",WD:"WD",RMA:"RMA"};
-const typeOptions=["OK","NG","TP SX","TP WIP"];
+const typeOptions=["OK","NG","TP SX","TP WIP","IQC","UPK"];
+function typeOptionsForArea(area){
+ if(area==="REAR")return ["OK","IQC","UPK"];
+ if(area==="THÀNH PHẨM")return ["TP SX","TP WIP"];
+ return ["OK","NG"];
+}
 const tabInfo={
  STOCK:{title:"TỒN TỔNG HỢP",desc:"Tồn hiện tại của tất cả Code tại từng khu vực.",table:"stock_transactions"},
  REAR:{title:"QUẢN LÝ REAR",desc:"Nhập/Xuất hàng khu vực REAR.",area:"REAR"},
@@ -185,6 +193,15 @@ function stockSummary(){
  });
  return [...map.values()].filter(r=>r.total!==0||r.REAR!==0||r.FG!==0||r.WD!==0||r.RMA!==0);
 }
+function areaStockSummary(tab){
+ const area=tabInfo[tab]?.area;if(!area)return [];
+ const grouped=new Map(),cm=codeMap(),mm=modelMap(),types=typeOptionsForArea(area);
+ transactions.filter(t=>t.area===area&&types.includes(t.item_type)).forEach(t=>{
+  if(!grouped.has(t.code))grouped.set(t.code,{model:mm.get(t.code)||"",code:t.code,description:cm.get(t.code)||"",byType:Object.fromEntries(types.map(x=>[x,0])),total:0});
+  const row=grouped.get(t.code);row.byType[t.item_type]=(row.byType[t.item_type]||0)+signed(t);row.total+=signed(t);
+ });
+ return [...grouped.values()].filter(r=>r.total!==0||types.some(x=>r.byType[x]!==0));
+}
 function render(){
  if(!db||!session)return;
  const q=$("search").value.trim().toLowerCase(),area=$("areaFilter").value,typ=$("typeFilter").value;
@@ -198,16 +215,18 @@ function render(){
  }else if(currentTab==="CODE"){
   headers=["Code tổng","Code","Des","MODEL","Ngày tạo","Thao tác"];data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(total=>({...r,code_total:total,code_totals:totals}))}).filter(r=>!q||String(r.code_total||"").toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||String(r.description||"").toLowerCase().includes(q)||String(r.model||"").toLowerCase().includes(q));
   $("footHint").textContent="Nhập danh mục Code trước khi nhập giao dịch kho.";
+ }else if(["REAR","FG","WD","RMA"].includes(currentTab)){
+  const cols=typeOptionsForArea(tabInfo[currentTab].area);
+  headers=["MODEL","Code","Des",...cols,"Tổng"];
+  data=areaStockSummary(currentTab).filter(r=>(!q||r.model.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||r.description.toLowerCase().includes(q))&&(!typ||cols.includes(typ)));
+  $("footHint").textContent="Đang hiển thị tồn thực tế theo từng Code và loại. Chi tiết nhập/xuất xem tại tab LỊCH SỬ.";
  }else{
-  const hideTotal=["REAR","WD","RMA"].includes(currentTab);
-  headers=hideTotal?["Ngày","Khu vực","Code","Des","Q'ty","Loại","Tình trạng","Remark"]:["Ngày","Khu vực","Code","Code tổng","Des","Q'ty","Loại","Tình trạng","Remark"];
-  data=transactions.filter(r=>(currentTab==="HISTORY"||r.area===tabInfo[currentTab].area)&&(!q||r.code.toLowerCase().includes(q)||String(r.remark||"").toLowerCase().includes(q)||String(codeMap().get(r.code)||"").toLowerCase().includes(q))&&(!area||r.area===area)&&(!typ||r.item_type===typ));
-  if(currentTab==="HISTORY"){
-   const from=$("dateFrom").value,to=$("dateTo").value;
-   data=data.filter(r=>(!from||r.trans_date>=from)&&(!to||r.trans_date<=to));
-  }
+  headers=["Ngày","Khu vực","Code","Code tổng","Des","Q'ty","Loại","Tình trạng","Remark"];
+  data=transactions.filter(r=>(!q||r.code.toLowerCase().includes(q)||String(r.remark||"").toLowerCase().includes(q)||String(codeMap().get(r.code)||"").toLowerCase().includes(q))&&(!area||r.area===area)&&(!typ||r.item_type===typ));
+  const from=$("dateFrom").value,to=$("dateTo").value;
+  data=data.filter(r=>(!from||r.trans_date>=from)&&(!to||r.trans_date<=to));
  }
- $("thead").innerHTML="<tr>"+headers.map(h=>`<th>${h}</th>`).join("")+(currentTab==="STOCK"||currentTab==="HISTORY"?"":"<th>Thao tác</th>")+"</tr>";
+ $("thead").innerHTML="<tr>"+headers.map(h=>`<th class="${["REAR","TP","WD","RMA","Tổng tồn","Tổng","OK","NG","IQC","UPK","TP SX","TP WIP","Tổng nhập","Tổng xuất","Tồn thực tế","Q'ty"].includes(h)?"num":""}">${h}</th>`).join("")+(["STOCK","HISTORY","REAR","FG","WD","RMA"].includes(currentTab)?"":"<th>Thao tác</th>")+"</tr>";
  const totalRows=data.length,totalPages=Math.max(1,Math.ceil(totalRows/pageSize));
  currentPage=Math.min(Math.max(1,currentPage),totalPages);
  const startIndex=(currentPage-1)*pageSize,visibleData=data.slice(startIndex,startIndex+pageSize);
@@ -215,10 +234,11 @@ function render(){
  $("pageInfo").textContent=totalRows?`${startIndex+1}-${Math.min(startIndex+pageSize,totalRows)} / ${totalRows} dòng`:"0 dòng";
  $("pageNumbers").textContent=`Trang ${currentPage} / ${totalPages}`;
  $("prevPage").disabled=currentPage<=1;$("nextPage").disabled=currentPage>=totalPages;
- if(!data.length){$("tbody").innerHTML=`<tr><td class="empty" colspan="${headers.length+(currentTab==="STOCK"||currentTab==="HISTORY"?0:1)}">Không có dữ liệu</td></tr>`;updateStats();return}
+ if(!data.length){$("tbody").innerHTML=`<tr><td class="empty" colspan="${headers.length+(["STOCK","HISTORY","REAR","FG","WD","RMA"].includes(currentTab)?0:1)}">Không có dữ liệu</td></tr>`;updateStats();return}
  const cm=codeMap();
  $("tbody").innerHTML=visibleData.map(r=>{
   if(currentTab==="STOCK"){const selectedArea=$("areaFilter").value==="THÀNH PHẨM"?"TP":$("areaFilter").value;const vals=selectedArea?[{label:selectedArea,value:r[selectedArea==="TP"?"FG":selectedArea]}]:[{label:"REAR",value:r.REAR},{label:"TP",value:r.FG},{label:"WD",value:r.WD},{label:"RMA",value:r.RMA}];const total=selectedArea?vals[0].value:r.total;return `<tr><td>${esc(r.model||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td>${vals.map(v=>`<td class="num">${fmt(v.value)}</td>`).join("")}<td class="num"><b>${fmt(total)}</b></td></tr>`;}
+  if(["REAR","FG","WD","RMA"].includes(currentTab)){const cols=typeOptionsForArea(tabInfo[currentTab].area);return `<tr><td>${esc(r.model)}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td>${cols.map(x=>`<td class="num">${fmt(r.byType[x]||0)}</td>`).join("")}<td class="num"><b>${fmt(r.total)}</b></td></tr>`;}
   if(currentTab==="CODE")return `<tr><td>${esc(r.code_total||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td>${esc(r.model||"")}</td><td>${esc((r.created_at||"").slice(0,10))}</td><td><button class="secondary" data-edit-code="${esc(r.code)}">Sửa</button> <button class="danger" data-del-code="${esc(r.code)}">Xóa</button></td></tr>`;
   const noTotal=["REAR","WD","RMA"].includes(currentTab);
   return `<tr><td>${esc(r.trans_date)}</td><td>${esc(r.area)}</td><td><b>${esc(r.code)}</b></td>${noTotal?"":`<td>${esc(r.code_total||"")}</td>`}<td>${esc(cm.get(r.code)||"")}</td><td class="num">${fmt(r.qty)}</td><td>${esc(r.item_type)}</td><td><span class="badge ${r.movement==="Nhập"?"in":"out"}">${esc(r.movement)}</span></td><td>${esc(r.remark)}</td>${currentTab==="HISTORY"?"":`<td><button class="secondary" data-edit-tx="${r.id}">Sửa</button> <button class="danger" data-del-tx="${r.id}">Xóa</button></td>`}</tr>`;
@@ -270,7 +290,7 @@ function openTx(row=null){
  autocompleteField("Code","code",row?.code||"","code")+
  (showTotal?autocompleteField("Code tổng","code_total",row?.code_total||"","total"):"")+
  field("Q'ty","qty","number",row?.qty??1)+
- field("Loại","item_type","text",row?.item_type||"OK",true,typeOptions)+
+ field("Loại","item_type","text",row?.item_type||typeOptionsForArea(area)[0],true,typeOptionsForArea(area))+
  field("Tình trạng","movement","text",row?.movement||"Nhập",true,["Nhập","Xuất"])+
  field("Remark","remark","text",row?.remark||"",false)+`<input type="hidden" name="area" value="${esc(area)}">`;
  bindAutocomplete($("inlineFields"));
@@ -332,7 +352,8 @@ function templateRows(){
  const a=tabInfo[currentTab].area;
  const noTotal=["REAR","WD","RMA"].includes(currentTab);
  const headers=noTotal?["Code","Q'ty","Loại","Tình trạng","Remark"]:["Code","Code tổng","Q'ty","Loại","Tình trạng","Remark"];
- const rows=noTotal?[["GH02-29024A",1,"OK","Nhập","Ghi chú"]]:[["GH02-29024A","CT001",1,"OK","Nhập","Ghi chú"]];
+ const defaultType=typeOptionsForArea(a)[0];
+ const rows=noTotal?[["GH02-29024A",1,defaultType,"Nhập","Ghi chú"]]:[["GH02-29024A","CT001",1,defaultType,"Nhập","Ghi chú"]];
  return {name:"Mau_"+a.replaceAll(" ","_"),headers,rows};
 }
 function formatExcelSheet(ws,headers,rows){
@@ -354,6 +375,7 @@ function downloadTemplate(){
 function exportExcel(){
  let data=[];
  if(currentTab==="STOCK"){const choice=prompt("Chọn khu vực xuất Excel:\\n1 = Tất cả khu vực\\n2 = REAR\\n3 = TP\\n4 = WD\\n5 = RMA","1");if(choice===null)return;const pick={"1":"","2":"REAR","3":"TP","4":"WD","5":"RMA"};if(!(choice in pick)){notify("Lựa chọn không hợp lệ.",true);return;}const selected=pick[choice];data=stockSummary().filter(r=>!selected||r[selected==="TP"?"FG":selected]!==0).map(r=>{const base={MODEL:r.model,Code:r.code,Des:r.description};if(!selected)return {...base,REAR:r.REAR,TP:r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total};const value=r[selected==="TP"?"FG":selected];return {...base,[selected]:value,"Tổng tồn":value};});}
+ else if(["REAR","FG","WD","RMA"].includes(currentTab))data=areaStockSummary(currentTab).map(r=>{const row={MODEL:r.model,Code:r.code,Des:r.description};typeOptionsForArea(tabInfo[currentTab].area).forEach(t=>row[t]=r.byType[t]||0);row["Tổng"]=r.total;return row;});
  else if(currentTab==="CODE")data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(code_total=>({"Code tổng":code_total,Code:r.code,Des:r.description,MODEL:r.model||""}))});
  else data=transactions.filter(r=>currentTab==="HISTORY"||r.area===tabInfo[currentTab].area).map(r=>currentTab!=="HISTORY"&&["REAR","WD","RMA"].includes(currentTab)?({Khu_vực:r.area,Code:r.code,"Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}):({Khu_vực:r.area,Code:r.code,"Code tổng":r.code_total||"","Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}));
  const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();
@@ -395,7 +417,7 @@ async function importExcel(file){
    const remark=String(valOf(r,["Remark","remark","Ghi chú"])||"");
    const code_total=String(valOf(r,["Code tổng","Code Tong","code_total"])||"").trim().toUpperCase();
    if(!cm.has(code)){notify("Code "+code+" chưa có trong tab CODE. Hãy import Code trước.",true);return}
-   if(!qty||!typeOptions.includes(item_type)||!["Nhập","Xuất"].includes(movement)){notify("Kiểm tra Q'ty, Loại (OK/NG/TP SX/TP WIP) và Tình trạng (Nhập/Xuất) ở file Excel.",true);return}
+   if(!qty||!typeOptionsForArea(area).includes(item_type)||!["Nhập","Xuất"].includes(movement)){notify("Kiểm tra Q'ty, Loại ("+typeOptionsForArea(area).join("/")+") và Tình trạng (Nhập/Xuất) ở file Excel.",true);return}
    batch.push({area,trans_date:date,code_total,code,qty,item_type,movement,remark});
   }
   if(!batch.length){notify("Không tìm thấy dòng giao dịch hợp lệ.",true);return}
