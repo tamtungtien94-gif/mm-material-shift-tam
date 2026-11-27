@@ -36,6 +36,7 @@ tr:last-child td{border-bottom:0}td.num{text-align:right;font-variant-numeric:ta
 .entry-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
 .entry-head h3{font-size:15px;margin:0 0 4px}.inline-grid{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:12px}
 .inline-grid .field{display:flex;flex-direction:column;gap:6px}.inline-grid .field label{font-size:12px;color:#475467;font-weight:700}
+.autocomplete{position:relative}.suggestions{position:absolute;z-index:20;left:0;right:0;top:100%;max-height:220px;overflow:auto;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 8px 20px #10182820;display:none}.suggestions.show{display:block}.suggestion{padding:9px 11px;cursor:pointer;border-bottom:1px solid #eef2f6;font-size:13px}.suggestion:last-child{border-bottom:0}.suggestion:hover{background:#eff6ff}.suggestion small{color:#667085;margin-left:8px}
 .inline-grid input,.inline-grid select{width:100%;height:40px;background:#fff}.entry-actions{display:flex;justify-content:flex-end;margin-top:13px}
 .hidden{display:none!important}.notice{padding:11px 13px;border-radius:9px;margin:0 0 14px;background:#eff6ff;color:#1d4ed8}
 .error{background:#fef3f2;color:#b42318}.success{background:#ecfdf3;color:#027a48}
@@ -184,7 +185,7 @@ function render(){
   headers=["Code tổng","Code","Des","MODEL","Ngày tạo","Thao tác"];data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(total=>({...r,code_total:total,code_totals:totals}))}).filter(r=>!q||String(r.code_total||"").toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||String(r.description||"").toLowerCase().includes(q)||String(r.model||"").toLowerCase().includes(q));
   $("footHint").textContent="Nhập danh mục Code trước khi nhập giao dịch kho.";
  }else{
-  headers=["Ngày","Khu vực","Code","Des","Q'ty","Loại","Tình trạng","Remark"];
+  headers=["Ngày","Khu vực","Code","Code tổng","Des","Q'ty","Loại","Tình trạng","Remark"];
   data=transactions.filter(r=>(currentTab==="HISTORY"||r.area===tabInfo[currentTab].area)&&(!q||r.code.toLowerCase().includes(q)||String(r.remark||"").toLowerCase().includes(q)||String(codeMap().get(r.code)||"").toLowerCase().includes(q))&&(!area||r.area===area)&&(!typ||r.item_type===typ));
   if(currentTab==="HISTORY"){
    const from=$("dateFrom").value,to=$("dateTo").value;
@@ -195,9 +196,9 @@ function render(){
  if(!data.length){$("tbody").innerHTML=`<tr><td class="empty" colspan="${headers.length+(currentTab==="STOCK"||currentTab==="HISTORY"?0:1)}">Không có dữ liệu</td></tr>`;updateStats();return}
  const cm=codeMap();
  $("tbody").innerHTML=data.map(r=>{
-  if(currentTab==="STOCK")return `<tr><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td class="num">${fmt(r.REAR)}</td><td class="num">${fmt(r.FG)}</td><td class="num">${fmt(r.WD)}</td><td class="num">${fmt(r.RMA)}</td><td class="num"><b>${fmt(r.total)}</b></td></tr>`;
+  if(currentTab==="STOCK")return `<tr><td>${esc(r.model||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td class="num">${fmt(r.REAR)}</td><td class="num">${fmt(r.FG)}</td><td class="num">${fmt(r.WD)}</td><td class="num">${fmt(r.RMA)}</td><td class="num"><b>${fmt(r.total)}</b></td></tr>`;
   if(currentTab==="CODE")return `<tr><td>${esc(r.code_total||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td>${esc(r.model||"")}</td><td>${esc((r.created_at||"").slice(0,10))}</td><td><button class="secondary" data-edit-code="${esc(r.code)}">Sửa</button> <button class="danger" data-del-code="${esc(r.code)}">Xóa</button></td></tr>`;
-  return `<tr><td>${esc(r.trans_date)}</td><td>${esc(r.area)}</td><td><b>${esc(r.code)}</b></td><td>${esc(cm.get(r.code)||"")}</td><td class="num">${fmt(r.qty)}</td><td>${esc(r.item_type)}</td><td><span class="badge ${r.movement==="Nhập"?"in":"out"}">${esc(r.movement)}</span></td><td>${esc(r.remark)}</td>${currentTab==="HISTORY"?"":`<td><button class="secondary" data-edit-tx="${r.id}">Sửa</button> <button class="danger" data-del-tx="${r.id}">Xóa</button></td>`}</tr>`;
+  return `<tr><td>${esc(r.trans_date)}</td><td>${esc(r.area)}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.code_total||"")}</td><td>${esc(cm.get(r.code)||"")}</td><td class="num">${fmt(r.qty)}</td><td>${esc(r.item_type)}</td><td><span class="badge ${r.movement==="Nhập"?"in":"out"}">${esc(r.movement)}</span></td><td>${esc(r.remark)}</td>${currentTab==="HISTORY"?"":`<td><button class="secondary" data-edit-tx="${r.id}">Sửa</button> <button class="danger" data-del-tx="${r.id}">Xóa</button></td>`}</tr>`;
  }).join("");
  document.querySelectorAll("[data-edit-code]").forEach(b=>b.onclick=()=>openCode(codes.find(x=>x.code===b.dataset.editCode)));
  document.querySelectorAll("[data-del-code]").forEach(b=>b.onclick=()=>deleteCode(b.dataset.delCode));
@@ -220,14 +221,35 @@ function openCode(row=null){
  $("formFields").innerHTML=field("Code tổng (nhiều mã, phân cách bằng dấu phẩy hoặc xuống dòng)","code_totals","text",(row?.code_totals||codeLinks.filter(x=>x.code===row?.code).map(x=>x.code_total)).join(", "),false)+field("Code","code","text",row?.code||"")+field("Des","description","text",row?.description||"",false)+field("MODEL","model","text",row?.model||"",false);
  $("modal").classList.add("open");$("dataForm").dataset.kind="code";
 }
+function autocompleteField(label,name,value="",kind="code"){
+ return `<div class="field"><label>${label}</label><div class="autocomplete"><input name="${name}" type="text" value="${esc(value)}" autocomplete="off" data-autocomplete="${kind}" placeholder="Gõ một phần mã để tìm..."><div class="suggestions" data-suggestions="${kind}"></div></div></div>`;
+}
+function bindAutocomplete(root){
+ root.querySelectorAll("[data-autocomplete]").forEach(input=>{
+  const kind=input.dataset.autocomplete,box=input.parentElement.querySelector("[data-suggestions]");
+  const update=()=>{
+   const q=input.value.trim().toLowerCase();let values=[];
+   if(kind==="code") values=codes.filter(c=>!q||c.code.toLowerCase().includes(q)).slice(0,30).map(c=>({value:c.code,detail:c.model||c.description||""}));
+   else {const code=root.querySelector('[name="code"]')?.value.trim().toUpperCase()||"";values=codeLinks.filter(x=>x.code===code&&(!q||x.code_total.toLowerCase().includes(q))).slice(0,30).map(x=>({value:x.code_total,detail:"Code tổng của "+code}));}
+   box.innerHTML=values.length?values.map(x=>`<div class="suggestion" data-value="${esc(x.value)}">${esc(x.value)} <small>${esc(x.detail)}</small></div>`).join(""):`<div class="suggestion">Không tìm thấy gợi ý</div>`;
+   box.classList.add("show");
+  };
+  input.addEventListener("input",update);input.addEventListener("focus",update);
+  box.addEventListener("mousedown",e=>{const item=e.target.closest("[data-value]");if(!item)return;e.preventDefault();input.value=item.dataset.value;box.classList.remove("show");if(kind==="code"){const total=root.querySelector('[data-autocomplete="total"]');if(total){total.value="";total.focus();}}});
+  input.addEventListener("blur",()=>setTimeout(()=>box.classList.remove("show"),150));
+ });
+}
 function openTx(row=null){
  editId=row?.id||null;const area=row?.area||tabInfo[currentTab].area;
  $("entryTitle").textContent=row?"Sửa giao dịch "+area:"Nhập giao dịch "+area;
  $("inlineFields").innerHTML=field("Ngày","trans_date","date",row?.trans_date||today())+
- field("Code","code","text",row?.code||"")+field("Q'ty","qty","number",row?.qty??1)+
+ autocompleteField("Code","code",row?.code||"","code")+
+ autocompleteField("Code tổng","code_total",row?.code_total||"","total")+
+ field("Q'ty","qty","number",row?.qty??1)+
  field("Loại","item_type","text",row?.item_type||"OK",true,typeOptions)+
  field("Tình trạng","movement","text",row?.movement||"Nhập",true,["Nhập","Xuất"])+
  field("Remark","remark","text",row?.remark||"",false)+`<input type="hidden" name="area" value="${esc(area)}">`;
+ bindAutocomplete($("inlineFields"));
  $("inlineForm").dataset.kind="tx";$("entryPanel").classList.remove("hidden");
 }
 function closeModal(){$("modal").classList.remove("open");editId=null}
@@ -268,7 +290,8 @@ async function saveForm(e){
 function templateRows(){
  if(currentTab==="CODE")return {name:"Mau_CODE",headers:["Code tổng","Code","Des","MODEL"],rows:[["CT001","GH02-29024A","TAPE INSULATION...","S958"],["CT002","GH02-29024A","TAPE INSULATION...","S958"]]};
  const a=tabInfo[currentTab].area;
- return {name:"Mau_"+a.replaceAll(" ","_"),headers:["Ngày","Code","Q'ty","Loại","Tình trạng","Remark"],rows:[[today(),"GH02-29024A",1,"OK","Nhập","Ghi chú"]]};
+ const headers=["Ngày","Code","Code tổng","Q'ty","Loại","Tình trạng","Remark"];
+ return {name:"Mau_"+a.replaceAll(" ","_"),headers,rows:[[today(),"GH02-29024A","CT001",1,"OK","Nhập","Ghi chú"]]};
 }
 function downloadTemplate(){
  const t=templateRows(),ws=XLSX.utils.aoa_to_sheet([t.headers,...t.rows]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Import");XLSX.writeFile(wb,t.name+".xlsx");
@@ -277,7 +300,7 @@ function exportExcel(){
  let data=[];
  if(currentTab==="STOCK")data=stockSummary().map(r=>({MODEL:r.model,Code:r.code,Des:r.description,REAR:r.REAR,"THÀNH PHẨM":r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total}));
  else if(currentTab==="CODE")data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(code_total=>({"Code tổng":code_total,Code:r.code,Des:r.description,MODEL:r.model||""}))});
- else data=transactions.filter(r=>currentTab==="HISTORY"||r.area===tabInfo[currentTab].area).map(r=>({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}));
+ else data=transactions.filter(r=>currentTab==="HISTORY"||r.area===tabInfo[currentTab].area).map(r=>({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Code tổng":r.code_total||"","Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}));
  const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,currentTab);XLSX.writeFile(wb,currentTab+"_Export.xlsx");
 }
 function valOf(row,names){for(const name of names){if(row[name]!==undefined&&row[name]!==null&&String(row[name]).trim()!=="")return row[name]}return ""}
@@ -303,9 +326,10 @@ async function importExcel(file){
    const qty=n(valOf(r,["Q'ty","Qty","qty"])),item_type=String(valOf(r,["Loại","Type","item_type"])||"OK").trim().toUpperCase();
    const movement=String(valOf(r,["Tình trạng","Tình_trạng","Movement","movement"])||"Nhập").trim();
    const remark=String(valOf(r,["Remark","remark","Ghi chú"])||"");
+   const code_total=String(valOf(r,["Code tổng","Code Tong","code_total"])||"").trim().toUpperCase();
    if(!cm.has(code)){notify("Code "+code+" chưa có trong tab CODE. Hãy import Code trước.",true);return}
    if(!qty||!typeOptions.includes(item_type)||!["Nhập","Xuất"].includes(movement)){notify("Kiểm tra Q'ty, Loại (OK/NG/TP SX/TP WIP) và Tình trạng (Nhập/Xuất) ở file Excel.",true);return}
-   batch.push({area,trans_date:date,code,qty,item_type,movement,remark});
+   batch.push({area,trans_date:date,code_total,code,qty,item_type,movement,remark});
   }
   if(!batch.length){notify("Không tìm thấy dòng giao dịch hợp lệ.",true);return}
   const {error}=await db.from("stock_transactions").insert(batch);
