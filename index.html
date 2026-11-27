@@ -55,8 +55,8 @@ td.num{padding-right:16px;font-weight:500}td.empty{text-align:center;color:var(-
 <body>
 <header><div><h1>MM MATERIAL MANAGEMENT</h1><small>ILSUNGTECH · SHIFT TÂM</small></div><div id="userState">Chưa đăng nhập</div></header>
 <div id="loginBox" class="panel">
-  <h2>Đăng nhập hệ thống</h2><p class="hint">Sử dụng tài khoản Supabase Auth hiện tại.</p>
-  <div class="loginfields"><input id="email" type="email" placeholder="Email"><input id="password" type="password" placeholder="Mật khẩu"><button id="loginBtn">Đăng nhập</button></div>
+  <h2>Đăng nhập hệ thống</h2><p class="hint">Tất cả tài khoản đăng nhập bằng Gmail và mật khẩu.</p>
+  <div class="loginfields"><input id="email" type="email" placeholder="Địa chỉ Gmail" autocomplete="username" required><input id="password" type="password" placeholder="Mật khẩu"><button id="loginBtn">Đăng nhập</button></div>
   <p id="loginMsg" class="hint"></p>
 </div>
 <main id="app" class="wrap hidden">
@@ -69,6 +69,7 @@ td.num{padding-right:16px;font-weight:500}td.empty{text-align:center;color:var(-
       <button class="tab" data-tab="RMA">RMA</button>
       <button class="tab" data-tab="HISTORY">LỊCH SỬ</button>
       <button class="tab" data-tab="CODE">CODE</button>
+      <button class="tab hidden" id="accountsTab" data-tab="ACCOUNTS">TÀI KHOẢN</button>
     </nav>
     <div class="actions" id="actions">
       <button class="secondary" id="templateBtn">Tải file mẫu Excel</button>
@@ -114,7 +115,21 @@ td.num{padding-right:16px;font-weight:500}td.empty{text-align:center;color:var(-
     </div>
     <p class="hint" id="footHint">Nhập làm tăng tồn; Xuất làm giảm tồn. Tồn được tính từ toàn bộ lịch sử giao dịch.</p>
   </section>
+  <section class="panel hidden" id="accountsPanel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><h2>QUẢN LÝ TÀI KHOẢN NHÂN VIÊN</h2><p class="hint">Chỉ ADM được tạo, sửa quyền, khóa/mở khóa và đặt lại mật khẩu.</p></div><div class="actions"><button class="secondary" id="backFromAccounts">Quay lại TỒN</button><button id="newAccountBtn">+ Tạo tài khoản</button></div></div>
+    <div class="toolbar"><input id="accountSearch" type="search" placeholder="Tìm mã nhân viên, họ tên hoặc Gmail..."><button class="secondary" id="reloadAccountsBtn">Làm mới danh sách</button></div>
+    <div class="tablewrap"><table style="min-width:700px"><thead><tr><th>Mã nhân viên</th><th>Họ tên</th><th>Gmail đăng nhập</th><th>Trạng thái</th><th>Ngày tạo</th><th>Thao tác</th></tr></thead><tbody id="accountsBody"><tr><td colspan="6" class="empty">Chưa tải danh sách</td></tr></tbody></table></div>
+    <p class="hint" style="margin-top:12px">Lưu ý: Khóa tài khoản ngăn đăng nhập mới và quyền truy cập dữ liệu được kiểm tra ở Supabase RLS. Tài khoản đang đăng nhập có thể cần đăng xuất để cập nhật trạng thái.</p>
+  </section>
 </main>
+<div class="modal" id="accountModal"><div class="dialog" style="width:min(850px,100%)"><h2 id="accountModalTitle">Tạo tài khoản nhân viên</h2><form id="accountForm"><div class="formgrid">
+    <div class="field"><label>Mã nhân viên</label><input name="employee_id" required maxlength="30" pattern="[A-Za-z0-9_-]{2,30}" placeholder="NV001"></div>
+    <div class="field"><label>Họ và tên</label><input name="full_name" required></div>
+    <div class="field" id="accountEmailField"><label>Gmail đăng nhập</label><input name="email" type="email" required placeholder="ten@gmail.com"></div>
+    <div class="field" id="accountPasswordField"><label>Mật khẩu ban đầu (ít nhất 8 ký tự)</label><input name="password" type="password" minlength="8" required></div>
+    <div class="field"><label>Trạng thái</label><select name="is_active"><option value="true">Đang hoạt động</option><option value="false">Đã khóa</option></select></div>
+  </div><h3>Phân quyền theo tab</h3><p class="hint">Chọn chính xác thao tác được phép. Xem là quyền đọc; Nhập/Xuất là giao dịch kho.</p><div class="tablewrap"><table style="min-width:650px"><thead><tr><th>Tab</th><th>Xem</th><th>Nhập</th><th>Xuất</th><th>Sửa</th><th>Xóa</th><th>Excel</th><th>Thêm</th></tr></thead><tbody id="permissionMatrix"></tbody></table></div>
+  <div class="dialogfoot"><button type="button" class="secondary" id="cancelAccountBtn">Hủy</button><button type="submit" id="saveAccountBtn">Lưu tài khoản</button></div></form></div></div>
 <div class="modal" id="modal"><div class="dialog"><h2 id="modalTitle">Thêm dữ liệu</h2><form id="dataForm"><div id="formFields" class="formgrid"></div><div class="dialogfoot"><button type="button" class="secondary" id="cancelBtn">Hủy</button><button type="submit">Lưu dữ liệu</button></div></form></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -157,7 +172,7 @@ async function init(){
  if(session)showApp();
  db.auth.onAuthStateChange((_event,s)=>{session=s;if(s)showApp();else showLogin()});
 }
-function showApp(){$("loginBox").classList.add("hidden");$("app").classList.remove("hidden");$("userState").textContent=session?.user?.email||"Đã đăng nhập";loadAll()}
+async function showApp(){$("loginBox").classList.add("hidden");$("app").classList.remove("hidden");await loadMyPermissions();$("userState").textContent=isAdmin?"ADM":(session?.user?.email||"Đã đăng nhập");loadAll()}
 function showLogin(){$("app").classList.add("hidden");$("loginBox").classList.remove("hidden");$("userState").textContent="Chưa đăng nhập"}
 async function loadAll(){
  hideNotify();
@@ -373,6 +388,7 @@ function downloadTemplate(){
  XLSX.utils.book_append_sheet(wb,ws,"Import");XLSX.writeFile(wb,t.name+".xlsx");
 }
 function exportExcel(){
+ if(!isAdmin&&!myPermissions?.[currentTab]?.excel){notify("Bạn không có quyền xuất Excel ở tab này.",true);return}
  let data=[];
  if(currentTab==="STOCK"){const choice=prompt("Chọn khu vực xuất Excel:\\n1 = Tất cả khu vực\\n2 = REAR\\n3 = TP\\n4 = WD\\n5 = RMA","1");if(choice===null)return;const pick={"1":"","2":"REAR","3":"TP","4":"WD","5":"RMA"};if(!(choice in pick)){notify("Lựa chọn không hợp lệ.",true);return;}const selected=pick[choice];data=stockSummary().filter(r=>!selected||r[selected==="TP"?"FG":selected]!==0).map(r=>{const base={MODEL:r.model,Code:r.code,Des:r.description};if(!selected)return {...base,REAR:r.REAR,TP:r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total};const value=r[selected==="TP"?"FG":selected];return {...base,[selected]:value,"Tổng tồn":value};});}
  else if(["REAR","FG","WD","RMA"].includes(currentTab))data=areaStockSummary(currentTab).map(r=>{const row={MODEL:r.model,Code:r.code,Des:r.description};typeOptionsForArea(tabInfo[currentTab].area).forEach(t=>row[t]=r.byType[t]||0);row["Tổng"]=r.total;return row;});
@@ -426,8 +442,36 @@ async function importExcel(file){
  }
  $("excelFile").value="";
 }
+
+const ADMIN_EMAIL="tamtungtien95@gmail.com";
+const PERM_TABS=[ ["STOCK","TỒN"],["REAR","REAR"],["FG","THÀNH PHẨM"],["WD","WD"],["RMA","RMA"],["HISTORY","LỊCH SỬ"],["CODE","CODE"] ];
+const PERM_ACTIONS=[["view","Xem"],["in","Nhập"],["out","Xuất"],["edit","Sửa"],["delete","Xóa"],["excel","Excel"],["add","Thêm"]];
+let isAdmin=false, myPermissions={}, editingAccountId=null, accountCache=[];
+function permissionMatrixHtml(perms={}){return PERM_TABS.map(([key,label])=>`<tr><td><b>${label}</b></td>${PERM_ACTIONS.map(([a])=>`<td><input type="checkbox" data-perm-tab="${key}" data-perm-action="${a}" ${perms?.[key]?.[a]?'checked':''}></td>`).join('')}</tr>`).join('')}
+function readPermissionMatrix(){const out={};document.querySelectorAll('#permissionMatrix [data-perm-tab]').forEach(el=>{const t=el.dataset.permTab,a=el.dataset.permAction;(out[t]??={})[a]=el.checked});return out}
+async function adminCall(payload){const {data,error}=await db.functions.invoke('admin-manage-user',{body:payload});if(error)throw new Error(error.message||'Lỗi gọi Edge Function');if(data?.error)throw new Error(data.error);return data}
+async function loadAccounts(){if(!isAdmin)return;const body=$('accountsBody');body.innerHTML='<tr><td colspan="6" class="empty">Đang tải...</td></tr>';const {data,error}=await db.from('employee_accounts').select('user_id,employee_id,full_name,email,is_active,created_at').order('employee_id');if(error){body.innerHTML=`<tr><td colspan="6" class="empty">${esc(error.message)}</td></tr>`;return}accountCache=data||[];renderAccounts()}
+function renderAccounts(){const q=$('accountSearch').value.trim().toLowerCase();const rows=accountCache.filter(x=>x.employee_id.toLowerCase().includes(q)||(x.full_name||'').toLowerCase().includes(q)||(x.email||'').toLowerCase().includes(q));$('accountsBody').innerHTML=rows.length?rows.map(x=>`<tr><td><b>${esc(x.employee_id)}</b></td><td>${esc(x.full_name)}</td><td>${esc(x.email||'')}</td><td><span class="badge ${x.is_active?'in':'out'}">${x.is_active?'Đang hoạt động':'Đã khóa'}</span></td><td>${esc((x.created_at||'').slice(0,10))}</td><td><button class="secondary" data-account-edit="${x.user_id}">Sửa quyền</button> <button class="${x.is_active?'danger':'secondary'}" data-account-toggle="${x.user_id}">${x.is_active?'Khóa':'Mở khóa'}</button> <button class="secondary" data-account-password="${x.user_id}">Đặt mật khẩu</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty">Không có tài khoản</td></tr>';
+ document.querySelectorAll('[data-account-edit]').forEach(b=>b.onclick=()=>editAccount(b.dataset.accountEdit));
+ document.querySelectorAll('[data-account-toggle]').forEach(b=>b.onclick=()=>toggleAccount(b.dataset.accountToggle));
+ document.querySelectorAll('[data-account-password]').forEach(b=>b.onclick=()=>resetAccountPassword(b.dataset.accountPassword));}
+function openAccountModal(row=null,perms={}){editingAccountId=row?.user_id||null;$('accountModalTitle').textContent=row?'Sửa tài khoản / phân quyền':'Tạo tài khoản nhân viên';const f=$('accountForm');f.reset();f.elements.employee_id.value=row?.employee_id||'';f.elements.employee_id.readOnly=!!row;f.elements.full_name.value=row?.full_name||'';f.elements.email.value=row?.email||'';f.elements.email.readOnly=!!row;f.elements.is_active.value=String(row?.is_active??true);f.elements.password.required=!row;$('accountPasswordField').classList.toggle('hidden',!!row);$('permissionMatrix').innerHTML=permissionMatrixHtml(perms);$('accountModal').classList.add('open')}
+async function editAccount(userId){try{const row=accountCache.find(x=>x.user_id===userId);const {data,error}=await db.from('employee_permissions').select('permissions').eq('user_id',userId).maybeSingle();if(error)throw error;openAccountModal(row,data?.permissions||{})}catch(e){notify(e.message,true)}}
+async function toggleAccount(userId){const row=accountCache.find(x=>x.user_id===userId);if(!row)return;const active=!row.is_active;if(!confirm(`${active?'Mở khóa':'Khóa'} tài khoản ${row.employee_id}?`))return;try{await adminCall({action:'set_active',user_id:userId,is_active:active});notify(`Đã ${active?'mở khóa':'khóa'} ${row.employee_id}.`);await loadAccounts()}catch(e){notify(e.message,true)}}
+async function resetAccountPassword(userId){const row=accountCache.find(x=>x.user_id===userId);if(!row)return;const pw=prompt(`Nhập mật khẩu mới cho ${row.employee_id} (ít nhất 8 ký tự):`);if(pw===null)return;if(pw.length<8){notify('Mật khẩu phải có ít nhất 8 ký tự.',true);return}try{await adminCall({action:'set_password',user_id:userId,password:pw});notify('Đã cập nhật mật khẩu.');}catch(e){notify(e.message,true)}}
+async function saveAccountForm(e){e.preventDefault();const f=new FormData(e.target),v=Object.fromEntries(f.entries());const permissions=readPermissionMatrix();try{if(editingAccountId){await adminCall({action:'update_account',user_id:editingAccountId,full_name:v.full_name,is_active:v.is_active==='true',permissions});notify('Đã cập nhật tài khoản và phân quyền.')}else{await adminCall({action:'create_user',employee_id:v.employee_id,full_name:v.full_name,email:v.email,password:v.password,is_active:v.is_active==='true',permissions});notify('Đã tạo tài khoản Gmail '+v.email+'.')}$('accountModal').classList.remove('open');await loadAccounts()}catch(err){notify(err.message,true)}}
+async function loadMyPermissions(){isAdmin=(session?.user?.email||'').toLowerCase()===ADMIN_EMAIL;if(isAdmin){$('accountsTab').classList.remove('hidden');myPermissions={};return}const {data,error}=await db.from('employee_permissions').select('permissions').eq('user_id',session.user.id).maybeSingle();if(error){notify('Không tải được quyền: '+error.message,true);return}myPermissions=data?.permissions||{};$('accountsTab').classList.add('hidden');document.querySelectorAll('.tab[data-tab]').forEach(b=>{const k=b.dataset.tab;b.classList.toggle('hidden',!myPermissions?.[k]?.view)});const first=PERM_TABS.find(([k])=>myPermissions?.[k]?.view)?.[0];if(first)setTab(first)}
+function setAccountTab(){currentTab='ACCOUNTS';document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='ACCOUNTS'));$('accountsPanel').classList.remove('hidden');document.querySelectorAll('#app > .topline,#app > .notice,#stats,#app > .panel:not(#accountsPanel)').forEach(x=>x.classList.add('hidden'));$('actions').classList.add('hidden');loadAccounts()}
+const originalSetTab=setTab;
+setTab=function(tab){if(!isAdmin&&tab!=='ACCOUNTS'&&!myPermissions?.[tab]?.view){notify("Bạn không có quyền xem tab này.",true);return}if(tab==='ACCOUNTS'){if(!isAdmin)return setTab('STOCK');setAccountTab();return} $('accountsPanel').classList.add('hidden');document.querySelectorAll('#app > .topline,#app > .notice,#stats,#app > .panel:not(#accountsPanel)').forEach(x=>x.classList.remove('hidden'));$('actions').classList.remove('hidden');originalSetTab(tab)};
+$('backFromAccounts').onclick=()=>setTab('STOCK');$('newAccountBtn').onclick=()=>openAccountModal();$('reloadAccountsBtn').onclick=loadAccounts;$('accountSearch').oninput=renderAccounts;$('accountForm').onsubmit=saveAccountForm;$('cancelAccountBtn').onclick=()=>$('accountModal').classList.remove('open');$('accountModal').onclick=e=>{if(e.target===$('accountModal'))$('accountModal').classList.remove('open')};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
-$("loginBtn").onclick=async()=>{const {error}=await db.auth.signInWithPassword({email:$("email").value,password:$("password").value});$("loginMsg").textContent=error?.message||"Đăng nhập thành công."};
+$("loginBtn").onclick=async()=>{
+ const email=$("email").value.trim().toLowerCase();
+ if(!email || !email.includes("@")){ $("loginMsg").textContent="Vui lòng nhập địa chỉ Gmail hợp lệ."; return; }
+ const {error}=await db.auth.signInWithPassword({email,password:$("password").value});
+ $("loginMsg").textContent=error?.message||"Đăng nhập thành công.";
+};
 $("logoutBtn").onclick=()=>db.auth.signOut();
 $("addBtn").onclick=()=>currentTab==="CODE"?openCode():openTx();
 $("cancelBtn").onclick=closeModal;$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};
