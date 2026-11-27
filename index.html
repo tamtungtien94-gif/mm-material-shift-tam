@@ -274,11 +274,19 @@ async function saveForm(e){
  if(e.target.dataset.kind==="code"){
   const code=v.code.trim().toUpperCase();
   const totals=[...new Set(String(v.code_totals||"").split(/[\n,;]+/).map(x=>x.trim().toUpperCase()).filter(Boolean))];
-  const master=editId?await db.from("code_master").update({description:v.description,model:v.model}).eq("code",editId):await db.from("code_master").insert({code_total:"",code,description:v.description,model:v.model});
-  if(master.error){notify(master.error.message,true);return}
   const target=editId||code;
-  const {error:delError}=await db.from("code_total_links").delete().eq("code",target);
-  if(delError){notify(delError.message,true);return}
+  if(editId){
+   const {error:masterError}=await db.from("code_master").update({description:v.description,model:v.model}).eq("code",target);
+   if(masterError){notify(masterError.message,true);return}
+  }else{
+   const existing=codes.find(c=>c.code===code);
+   if(!existing){
+    const {error:masterError}=await db.from("code_master").insert({code_total:"",code,description:v.description,model:v.model});
+    if(masterError){notify(masterError.message,true);return}
+   }
+   // Nếu Code đã tồn tại, chỉ bổ sung liên kết Code tổng; không INSERT lại Code và không ghi đè thông tin cũ.
+  }
+  // Chỉ thêm/cập nhật các cặp liên kết được chọn; giữ nguyên những Code tổng đã liên kết trước đó.
   if(totals.length){const {error:linkError}=await db.from("code_total_links").upsert(totals.map(code_total=>({code_total,code:target})),{onConflict:"code_total,code"});if(linkError){notify(linkError.message,true);return}}
   result={error:null};
  }else{
