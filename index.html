@@ -1,411 +1,298 @@
 <!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>MM Material Management | Shift Tâm</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    :root{--navy:#17365d;--blue:#2563eb;--bg:#f3f6fb;--line:#e3e9f2;--text:#182230;--muted:#667085;--green:#15803d;--red:#b42318}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px Inter,Arial,sans-serif}
-    header{background:var(--navy);color:#fff;padding:18px 26px;display:flex;align-items:center;justify-content:space-between;gap:16px}
-    header h1{font-size:19px;margin:0;font-weight:800;letter-spacing:.3px}header small{color:#cbd5e1}
-    .wrap{max-width:1440px;margin:24px auto;padding:0 20px}
-    .topline{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
-    .tabs{display:flex;gap:8px;flex-wrap:wrap}.tab{border:1px solid var(--line);background:#fff;padding:11px 18px;border-radius:10px;font-weight:700;cursor:pointer;color:#344054}
-    .tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
-    .actions{display:flex;gap:8px;flex-wrap:wrap}
-    button,.filelabel{border:0;border-radius:8px;padding:10px 13px;font:600 13px Inter;cursor:pointer;background:var(--blue);color:#fff}
-    button.secondary,.filelabel.secondary{background:#fff;color:#344054;border:1px solid var(--line)}
-    button.danger{background:#fff;color:var(--red);border:1px solid #fecdca}
-    button:disabled{opacity:.5;cursor:not-allowed}
-    .grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:14px;margin-bottom:18px}
-    .stat,.panel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:17px;box-shadow:0 2px 8px #10182808}
-    .stat small{color:var(--muted);font-weight:600}.stat strong{display:block;font-size:25px;margin-top:9px}
-    .panel h2{font-size:16px;margin:0 0 14px}
-    .toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:13px}
-    input,select{border:1px solid #d0d5dd;border-radius:8px;padding:10px 11px;font:13px Inter;background:#fff;color:var(--text);min-width:0}
-    input[type=search]{min-width:230px;flex:1}
-    .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
-    table{width:100%;border-collapse:collapse;min-width:760px;background:#fff}
-    th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
-    th{background:#f8fafc;color:#475467;font-size:12px;text-transform:uppercase;letter-spacing:.35px}
-    td.empty{text-align:center;color:var(--muted);padding:35px}
-    .pill{display:inline-block;border-radius:20px;padding:4px 8px;font-size:11px;font-weight:700;background:#ecfdf3;color:var(--green)}
-    .pill.over{background:#fef3f2;color:var(--red)}
-    .hint{color:var(--muted);font-size:12px;line-height:1.6;margin-top:12px}
-    .modal{position:fixed;inset:0;background:#10182888;display:none;align-items:center;justify-content:center;padding:18px;z-index:5}
-    .modal.open{display:flex}.dialog{background:#fff;border-radius:14px;width:min(620px,100%);padding:22px;max-height:90vh;overflow:auto}
-    .dialog h3{margin:0 0 17px}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:12px;font-weight:700;color:#475467}
-    .dialogfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
-    #login{max-width:390px;margin:9vh auto;background:#fff;padding:26px;border:1px solid var(--line);border-radius:14px}
-    #login h2{margin-top:0}.status{font-size:12px;color:#d0d5dd}.status.ok{color:#86efac}
-    .hidden{display:none!important}
-    @media(max-width:760px){header{padding:16px}.wrap{padding:0 12px;margin:15px auto}.grid{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}.topline{align-items:flex-start}}
-  </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MM Material Management | Shift Tâm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#17365d;--blue:#2563eb;--bg:#f3f6fb;--line:#e3e9f2;--text:#182230;--muted:#667085;--green:#15803d;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px Inter,Arial,sans-serif}
+header{background:var(--navy);color:#fff;padding:17px 24px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+header h1{font-size:19px;margin:0;font-weight:800}header small{color:#cbd5e1}
+.wrap{max-width:1600px;margin:22px auto;padding:0 18px}
+.topline{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.tabs,.actions{display:flex;gap:8px;flex-wrap:wrap}.tab{border:1px solid var(--line);background:#fff;padding:11px 17px;border-radius:10px;font-weight:700;cursor:pointer;color:#344054}
+.tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+button,.filelabel{border:0;border-radius:8px;padding:10px 13px;font:600 13px Inter;cursor:pointer;background:var(--blue);color:#fff}
+button.secondary,.filelabel.secondary{background:#fff;color:#344054;border:1px solid var(--line)}
+button.danger{background:#fff;color:var(--red);border:1px solid #fecdca}
+button:disabled{opacity:.5;cursor:not-allowed}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+.stat,.panel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:16px;box-shadow:0 2px 8px #10182808}
+.stat small{color:var(--muted);font-weight:600}.stat strong{display:block;font-size:24px;margin-top:8px}
+.panel h2{font-size:16px;margin:0 0 12px}.hint{color:var(--muted);font-size:12px;margin:0 0 12px}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+input,select{border:1px solid #d0d5dd;border-radius:8px;padding:10px 11px;font:13px Inter;background:#fff;color:var(--text);min-width:0}
+input[type=search]{min-width:220px;flex:1}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:850px;background:#fff}
+th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:#f8fafc;color:#475467;font-size:11px;text-transform:uppercase;letter-spacing:.3px;position:sticky;top:0}
+tr:last-child td{border-bottom:0}td.num{text-align:right;font-variant-numeric:tabular-nums}td.empty{text-align:center;color:var(--muted);padding:28px}
+.badge{display:inline-block;padding:4px 8px;border-radius:20px;background:#eef2ff;color:#3448a5;font-size:11px;font-weight:700}
+.badge.in{background:#ecfdf3;color:#027a48}.badge.out{background:#fef3f2;color:#b42318}
+.hidden{display:none!important}.notice{padding:11px 13px;border-radius:9px;margin:0 0 14px;background:#eff6ff;color:#1d4ed8}
+.error{background:#fef3f2;color:#b42318}.success{background:#ecfdf3;color:#027a48}
+.modal{position:fixed;inset:0;background:#10182888;display:none;align-items:center;justify-content:center;padding:18px;z-index:10}
+.modal.open{display:flex}.dialog{background:#fff;border-radius:14px;padding:20px;width:min(560px,100%);max-height:90vh;overflow:auto}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.field{display:flex;flex-direction:column;gap:6px}.field.full{grid-column:1/-1}.field label{font-size:12px;color:#475467;font-weight:700}
+.dialogfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+#loginBox{max-width:420px;margin:8vh auto}.loginfields{display:grid;gap:10px}
+@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.topline{align-items:flex-start}.tabs{width:100%}.tab{flex:1;padding:10px 8px}}
+@media(max-width:520px){header{padding:14px}.wrap{padding:0 10px}.grid{grid-template-columns:1fr 1fr}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}}
+</style>
 </head>
 <body>
-<header>
-  <div><h1>MM MATERIAL MANAGEMENT</h1><small>ILSUNGTECH · SHIFT TÂM</small></div>
-  <div style="text-align:right"><div id="userLabel">Chưa đăng nhập</div><div id="connection" class="status">Chưa kết nối Supabase</div></div>
-</header>
-
-<section id="login" class="hidden">
-  <h2>Đăng nhập hệ thống</h2>
-  <p class="hint">Sử dụng tài khoản đã tạo trong Supabase Authentication.</p>
-  <div class="field"><label>Email</label><input id="email" type="email" autocomplete="username"></div>
-  <div class="field" style="margin-top:12px"><label>Mật khẩu</label><input id="password" type="password" autocomplete="current-password"></div>
-  <button id="loginBtn" style="width:100%;margin-top:16px">Đăng nhập</button>
+<header><div><h1>MM MATERIAL MANAGEMENT</h1><small>ILSUNGTECH · SHIFT TÂM</small></div><div id="userState">Chưa đăng nhập</div></header>
+<div id="loginBox" class="panel">
+  <h2>Đăng nhập hệ thống</h2><p class="hint">Sử dụng tài khoản Supabase Auth hiện tại.</p>
+  <div class="loginfields"><input id="email" type="email" placeholder="Email"><input id="password" type="password" placeholder="Mật khẩu"><button id="loginBtn">Đăng nhập</button></div>
   <p id="loginMsg" class="hint"></p>
-</section>
-
+</div>
 <main id="app" class="wrap hidden">
   <div class="topline">
-    <nav class="tabs">
-      <button class="tab active" data-tab="REPORT">BÁO CÁO</button>
-      <button class="tab" data-tab="BOM">BOM</button>
-      <button class="tab" data-tab="VENDOR">VENDOR STOCK</button>
-      <button class="tab" data-tab="OVER">OVER</button>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="STOCK">TỒN</button>
+      <button class="tab" data-tab="REAR">REAR</button>
+      <button class="tab" data-tab="FG">THÀNH PHẨM</button>
+      <button class="tab" data-tab="WD">WD</button>
+      <button class="tab" data-tab="RMA">RMA</button>
+      <button class="tab" data-tab="HISTORY">LỊCH SỬ</button>
+      <button class="tab" data-tab="CODE">CODE</button>
     </nav>
-    <div class="actions">
+    <div class="actions" id="actions">
       <button class="secondary" id="templateBtn">Tải file mẫu Excel</button>
-      <label class="filelabel secondary" id="importLabel" for="excelFile">Import Excel</label><input id="excelFile" type="file" accept=".xlsx,.xls,.csv" class="hidden">
+      <label class="filelabel secondary" for="excelFile">Import Excel</label><input id="excelFile" type="file" accept=".xlsx,.xls,.csv" class="hidden">
       <button class="secondary" id="exportBtn">Export Excel</button>
+      <button class="secondary" id="addBtn">+ Thêm dữ liệu</button>
       <button class="secondary" id="logoutBtn">Đăng xuất</button>
     </div>
   </div>
-  <div class="grid">
-    <div class="stat"><small>Tổng dòng BOM</small><strong id="statBom">0</strong></div>
-    <div class="stat"><small>Mã vật liệu</small><strong id="statCodes">0</strong></div>
-    <div class="stat"><small>Dòng OVER</small><strong id="statOver">0</strong></div>
-    <div class="stat"><small>Tổng chi phí vượt</small><strong id="statCost">0</strong></div>
+  <div id="message" class="notice hidden"></div>
+  <div class="grid" id="stats">
+    <div class="stat"><small>Tổng mã đang có tồn</small><strong id="sCodes">0</strong></div>
+    <div class="stat"><small>Tổng tồn hiện tại</small><strong id="sQty">0</strong></div>
+    <div class="stat"><small>Tổng nhập</small><strong id="sIn">0</strong></div>
+    <div class="stat"><small>Tổng xuất</small><strong id="sOut">0</strong></div>
   </div>
-  <section class="panel" id="reportPanel" style="display:none;margin-bottom:18px">
-    <h2>Báo cáo tổng hợp</h2>
-    <div class="grid" style="margin-bottom:0">
-      <div class="stat"><small>Tổng dòng BOM</small><strong id="reportBom">0</strong></div>
-      <div class="stat"><small>Vật liệu Vendor Stock</small><strong id="reportVendor">0</strong></div>
-      <div class="stat"><small>Bản ghi OVER</small><strong id="reportOver">0</strong></div>
-      <div class="stat"><small>Tổng chi phí OVER (USD)</small><strong id="reportCost">0</strong></div>
-    </div>
-    <p class="hint">Báo cáo tổng hợp từ dữ liệu BOM, Vendor Stock và OVER hiện có trong Supabase.</p>
-  </section>
-  <section class="panel" id="dataPanel">
+  <section class="panel">
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
-      <div><h2 id="sectionTitle">Quản lý BOM</h2><div class="hint" id="sectionDesc">Quản lý Model, Code, Remark và định mức vật liệu.</div></div>
-      <button id="addBtn">+ Thêm dữ liệu</button>
+      <div><h2 id="title">Tồn tổng hợp</h2><p class="hint" id="desc">Tổng hợp số lượng còn lại theo Code và khu vực.</p></div>
+      <button id="refreshBtn" class="secondary">Làm mới</button>
     </div>
     <div class="toolbar">
-      <input id="search" type="search" placeholder="Tìm theo Model, Code, Remark...">
-      <select id="modelFilter"><option value="">Tất cả Model</option></select>
-      <button class="secondary" id="refreshBtn">Làm mới</button>
+      <input id="search" type="search" placeholder="Tìm theo Code hoặc mô tả...">
+      <select id="areaFilter"><option value="">Tất cả khu vực</option><option>REAR</option><option>THÀNH PHẨM</option><option>WD</option><option>RMA</option></select>
+      <select id="typeFilter"><option value="">Tất cả loại</option><option>OK</option><option>NG</option><option>TP SX</option><option>TP WIP</option></select>
+      <input id="dateFrom" type="date" class="hidden"><input id="dateTo" type="date" class="hidden">
     </div>
     <div class="tablewrap"><table id="dataTable"><thead id="thead"></thead><tbody id="tbody"><tr><td class="empty">Đang tải dữ liệu...</td></tr></tbody></table></div>
-    <p class="hint" id="tableHint">BOM V7: hiển thị Q'ty và Giá (USD); giá tra theo Material từ material_prices khi price_usd trống.</p>
+    <p class="hint" id="footHint">Nhập làm tăng tồn; Xuất làm giảm tồn. Tồn được tính từ toàn bộ lịch sử giao dịch.</p>
   </section>
 </main>
-
-<div class="modal" id="modal">
-  <div class="dialog">
-    <h3 id="modalTitle">Thêm dữ liệu</h3>
-    <form id="dataForm"><div class="formgrid" id="formFields"></div>
-      <div class="dialogfoot"><button type="button" class="secondary" id="cancelBtn">Hủy</button><button type="submit">Lưu dữ liệu</button></div>
-    </form>
-  </div>
-</div>
-
+<div class="modal" id="modal"><div class="dialog"><h2 id="modalTitle">Thêm dữ liệu</h2><form id="dataForm"><div id="formFields" class="formgrid"></div><div class="dialogfoot"><button type="button" class="secondary" id="cancelBtn">Hủy</button><button type="submit">Lưu dữ liệu</button></div></form></div></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="./config.js"></script>
 <script>
-/* Cấu hình được đọc từ config.js để không phải sửa lại khi cập nhật giao diện. */
-const SUPABASE_URL = window.MM_CONFIG?.SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = window.MM_CONFIG?.SUPABASE_PUBLISHABLE_KEY || "";
-let db = null, currentTab = "REPORT", rows = [], editingId = null;
-const $ = id => document.getElementById(id);
-const configReady = !SUPABASE_URL.startsWith("YOUR_") && !SUPABASE_ANON_KEY.startsWith("YOUR_");
-
-const config = {
-  REPORT:{table:null,title:"Báo cáo tổng hợp",desc:"Tổng hợp dữ liệu BOM, Vendor Stock và OVER.",fields:[],columns:[]},
-  BOM:{table:"material_bom",title:"Quản lý BOM",desc:"Model, Parent Code, Material, loại vật liệu, mô tả, Qty và Price (USD).",fields:[
-    ["model","Model (Parent Code)","text",true],
-    ["parent_code","Parent Code","text",true],
-    ["material","Material","text",true],
-    ["material_type","Material Type","text",false],
-    ["material_description","Material Description","text",false],
-    ["qty","Qty","number",true],
-    ["price_usd","Giá (USD)","number",false]
-  ],columns:[
-    ["model","Model (Parent Code)"],
-    ["parent_code","Parent Code"],
-    ["material","Material"],
-    ["material_type","Material Type"],
-    ["material_description","Material Description"],
-    ["qty","Qty"],
-    ["price_usd","Giá (USD)"]
-  ]},
-  VENDOR:{table:"vendor_stock",title:"Vendor Stock",desc:"Quản lý tồn kho vật liệu theo nhà cung cấp.",fields:[
-    ["vendor","Vendor","text",true],
-    ["material","Material","text",true],
-    ["material_description","Material Description","text",false],
-    ["stock_qty","Stock Qty","number",true],
-    ["unit","Unit","text",false],
-    ["update_date","Update Date","date",true]
-  ],columns:[
-    ["vendor","Vendor"],["material","Material"],["material_description","Material Description"],
-    ["stock_qty","Stock Qty"],["unit","Unit"],["update_date","Update Date"]
-  ]},
-  OVER:{table:"material_over",title:"Quản lý OVER",desc:"Nhập tiêu hao thực tế; hệ thống đối chiếu BOM theo Model + Parent Code + Material.",fields:[
-    ["work_date","Ngày","date",true],
-    ["model","Model","text",true],
-    ["parent_code","Parent Code","text",true],
-    ["material","Material","text",true],
-    ["actual_qty","Thực tế","number",true],
-    ["note","Ghi chú","text",false]
-  ],columns:[
-    ["work_date","Ngày"],["model","Model"],["parent_code","Parent Code"],["material","Material"],
-    ["qty","Định mức BOM"],["actual_qty","Thực tế"],["excess_qty","Số lượng vượt"],
-    ["price_usd","Giá (USD)"],["excess_cost_usd","Chi phí vượt (USD)"],
-    ["bom_status","Đối chiếu BOM"],["note","Ghi chú"]
-  ]}
+const SUPABASE_URL=window.MM_CONFIG?.SUPABASE_URL||"";
+const SUPABASE_KEY=window.MM_CONFIG?.SUPABASE_PUBLISHABLE_KEY||"";
+const $=id=>document.getElementById(id);
+const areas={REAR:"REAR",FG:"THÀNH PHẨM",WD:"WD",RMA:"RMA"};
+const typeOptions=["OK","NG","TP SX","TP WIP"];
+const tabInfo={
+ STOCK:{title:"TỒN TỔNG HỢP",desc:"Tồn hiện tại của tất cả Code tại từng khu vực.",table:"stock_transactions"},
+ REAR:{title:"QUẢN LÝ REAR",desc:"Nhập/Xuất hàng khu vực REAR.",area:"REAR"},
+ FG:{title:"QUẢN LÝ THÀNH PHẨM",desc:"Nhập/Xuất hàng khu vực THÀNH PHẨM.",area:"THÀNH PHẨM"},
+ WD:{title:"QUẢN LÝ WD",desc:"Nhập/Xuất hàng khu vực WD.",area:"WD"},
+ RMA:{title:"QUẢN LÝ RMA",desc:"Nhập/Xuất hàng khu vực RMA.",area:"RMA"},
+ HISTORY:{title:"LỊCH SỬ XUẤT NHẬP",desc:"Tra cứu lịch sử giao dịch theo Code, khu vực và ngày."},
+ CODE:{title:"DANH MỤC CODE",desc:"Quản lý mã Code và mô tả."}
 };
-
-const excelTemplates = {
-  BOM: {
-    sheet:"BOM",
-    headers:["Model (Parent Code)","Parent Code","Material","Q'ty","Giá (USD)","Material Type","Material Description"],
-    rows:[
-      ["S958","GH96-23279B","GH02-27748A",1,0.005375,"Vật liệu","TAPE SPONGE-SENSOR FA;SM-S948,PU,LRS02"],
-      ["S958","GH96-23279B","GH02-29024A",1,0.004074,"Vật liệu","TAPE INSULATION-5X CAM CONN;SM-S958U,PET"],
-      ["S958","GH96-23279B","GH02-28777A",1,0.01421,"Vật liệu","TAPE SPONGE-WIDE CAM BTM;SM-S958U,PU,SSE"],
-      ["S958","GH96-23279B","GH63-23440A",1,0.036512,"Vật liệu","PROTECTOR VINYL-FRONT SIDE BTM;SM-S958U,"],
-      ["S958","GH96-23279B","GH02-28003A",1,0.003646,"Vật liệu","TAPE SPONGE-BIT UPPER;SM-S948,PU,FN2020-"]
-    ]
-  },
-  VENDOR: {
-    sheet:"VENDOR STOCK",
-    headers:["Vendor","Material","Material Description","Stock Qty","Unit","Update Date"],
-    rows:[["","","", "", "", ""]]
-  },
-  OVER: {
-    sheet:"OVER",
-    headers:["Ngày","Model","Parent Code","Material","Thực tế","Ghi chú"],
-    rows:[["","","","","",""]]
-  }
-};
-
-function downloadTemplate(){
-  if(currentTab==="REPORT"){notify("Hãy chọn BOM, VENDOR STOCK hoặc OVER để tải file mẫu.");return}
-  const t=excelTemplates[currentTab];
-  const ws=XLSX.utils.aoa_to_sheet([t.headers,...t.rows]);
-  ws["!cols"]=t.headers.map((h,i)=>({wch:[24,22,22,14,18,18,58][i]||20}));
-  ws["!freeze"]={xSplit:0,ySplit:1};
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,t.sheet);
-  XLSX.writeFile(wb,`Mau_${currentTab}_${new Date().toISOString().slice(0,10)}.xlsx`);
-}
-
-function updateExcelControls(){
-  const isReport=currentTab==="REPORT";
-  ["templateBtn","importLabel","exportBtn"].forEach(id=>$(id).classList.toggle("hidden",isReport));
-  $("addBtn").classList.toggle("hidden",isReport);
-}
-
-function notify(msg){alert(msg)}
-function fmt(v){return Number(v||0).toLocaleString("vi-VN",{maximumFractionDigits:4})}
-function fmtMoney(v){if(v===null||v===undefined||v==="")return "";return "$"+Number(v).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:6})}
-function setConnection(msg,ok=false){$("connection").textContent=msg;$("connection").className="status"+(ok?" ok":"")}
+let db=null,session=null,currentTab="STOCK",codes=[],transactions=[],editId=null;
+function notify(msg,error=false){const el=$("message");el.textContent=msg;el.className="notice "+(error?"error":"success");el.classList.remove("hidden");}
+function hideNotify(){$("message").classList.add("hidden")}
+function n(v){const x=Number(v||0);return Number.isFinite(x)?x:0}
+function fmt(v){return n(v).toLocaleString("en-US",{maximumFractionDigits:3})}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function today(){return new Date().toISOString().slice(0,10)}
+function signed(t){return t.movement==="Nhập"?n(t.qty):-n(t.qty)}
+function codeMap(){return new Map(codes.map(c=>[c.code,c.description||""]))}
 async function init(){
-  if(!configReady){$("login").classList.remove("hidden");$("loginMsg").textContent="Cần điền SUPABASE_URL và SUPABASE_PUBLISHABLE_KEY trong file config.js trước khi sử dụng.";setConnection("Chưa cấu hình Supabase");return}
-  db=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-  const {data:{session}}=await db.auth.getSession();
-  if(session) showApp(session.user); else $("login").classList.remove("hidden");
-  db.auth.onAuthStateChange((_event,session)=>{if(session)showApp(session.user);else{ $("app").classList.add("hidden");$("login").classList.remove("hidden");}});
+ if(!SUPABASE_URL||!SUPABASE_KEY||!window.supabase){$("loginMsg").textContent="Thiếu cấu hình Supabase. Kiểm tra config.js.";return}
+ db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+ const {data}=await db.auth.getSession();session=data.session;
+ if(session)showApp();
+ db.auth.onAuthStateChange((_event,s)=>{session=s;if(s)showApp();else showLogin()});
 }
-async function showApp(user){
-  $("login").classList.add("hidden");$("app").classList.remove("hidden");$("userLabel").textContent=user.email||"Đã đăng nhập";setConnection("Đã kết nối",true);await loadData();
+function showApp(){$("loginBox").classList.add("hidden");$("app").classList.remove("hidden");$("userState").textContent=session?.user?.email||"Đã đăng nhập";loadAll()}
+function showLogin(){$("app").classList.add("hidden");$("loginBox").classList.remove("hidden");$("userState").textContent="Chưa đăng nhập"}
+async function loadAll(){
+ hideNotify();
+ const [c,t]=await Promise.all([
+  db.from("code_master").select("code,description,created_at,updated_at").order("code"),
+  db.from("stock_transactions").select("*").order("trans_date",{ascending:false}).order("created_at",{ascending:false})
+ ]);
+ if(c.error||t.error){notify("Lỗi tải dữ liệu: "+(c.error?.message||t.error?.message),true);return}
+ codes=c.data||[];transactions=t.data||[];render();
 }
-$("loginBtn").onclick=async()=>{
-  if(!db){notify("Vui lòng cấu hình Supabase trước.");return}
-  $("loginMsg").textContent="Đang đăng nhập...";
-  const {error}=await db.auth.signInWithPassword({email:$("email").value,password:$("password").value});
-  $("loginMsg").textContent=error?error.message:"Đăng nhập thành công.";
-};
-$("logoutBtn").onclick=async()=>{await db.auth.signOut()};
-$("refreshBtn").onclick=loadData;
-document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{currentTab=b.dataset.tab;document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));updateExcelControls();loadData()});
-$("templateBtn").onclick=downloadTemplate;
-updateExcelControls();
-$("search").oninput=renderTable;$("modelFilter").onchange=renderTable;
-$("addBtn").onclick=()=>openModal();
-$("cancelBtn").onclick=closeModal;
-$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};
-
-async function loadData(){
-  if(!db)return;
-  if(currentTab==="REPORT"){await loadReport();return}
-  $("reportPanel").style.display="none";
-  $("dataPanel").style.display="block";
-  const c=config[currentTab];
-  $("sectionTitle").textContent=c.title;
-  $("sectionDesc").textContent=c.desc;
-
-  const displayColumns=currentTab==="BOM"
-    ? [["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],
-       ["qty","Q'ty"],["price_usd","Giá (USD)"],
-       ["material_type","Material Type"],["material_description","Material Description"]]
-    : c.columns;
-
-  $("thead").innerHTML="<tr>"+displayColumns.map(x=>`<th>${x[1]}</th>`).join("")+
-    "<th>Thao tác</th></tr>";
-  $("dataTable").style.minWidth=currentTab==="BOM"?"1450px":"760px";
-  $("tbody").innerHTML='<tr><td class="empty" colspan="'+(displayColumns.length+1)+'">Đang tải...</td></tr>';
-
-  let result=await db.from(c.table).select("*").order("created_at",{ascending:false});
-  if(result.error){
-    $("tbody").innerHTML=`<tr><td class="empty" colspan="${displayColumns.length+1}">${escapeHtml(result.error.message)}</td></tr>`;
-    return;
+function setTab(tab){
+ currentTab=tab;
+ document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+ $("title").textContent=tabInfo[tab].title;$("desc").textContent=tabInfo[tab].desc;
+ $("areaFilter").classList.toggle("hidden",!["STOCK","HISTORY"].includes(tab));
+ $("typeFilter").classList.toggle("hidden",!["STOCK","HISTORY","REAR","FG","WD","RMA"].includes(tab));
+ $("dateFrom").classList.toggle("hidden",tab!=="HISTORY");$("dateTo").classList.toggle("hidden",tab!=="HISTORY");
+ $("addBtn").classList.toggle("hidden",tab==="STOCK"||tab==="HISTORY");
+ $("templateBtn").classList.toggle("hidden",tab==="STOCK"||tab==="HISTORY");
+ $("excelFile").disabled=tab==="STOCK"||tab==="HISTORY";
+ $("actions").querySelector('label[for="excelFile"]').classList.toggle("hidden",tab==="STOCK"||tab==="HISTORY");
+ $("stats").classList.toggle("hidden",tab==="CODE");
+ render();
+}
+function stockSummary(){
+ const cm=codeMap(),map=new Map();
+ transactions.forEach(t=>{
+  const key=t.code;if(!map.has(key))map.set(key,{code:key,description:cm.get(key)||"",REAR:0,FG:0,WD:0,RMA:0,total:0});
+  const row=map.get(key),a=t.area==="THÀNH PHẨM"?"FG":t.area;row[a]+=signed(t);row.total+=signed(t);
+ });
+ return [...map.values()].filter(r=>r.total!==0||r.REAR!==0||r.FG!==0||r.WD!==0||r.RMA!==0);
+}
+function render(){
+ if(!db||!session)return;
+ const q=$("search").value.trim().toLowerCase(),area=$("areaFilter").value,typ=$("typeFilter").value;
+ let data=[],headers=[];
+ if(currentTab==="STOCK"){
+  headers=["Code","Des","REAR","THÀNH PHẨM","WD","RMA","Tổng tồn"];
+  data=stockSummary().filter(r=>(!area||({REAR:r.REAR, "THÀNH PHẨM":r.FG,WD:r.WD,RMA:r.RMA}[area]!==0))&&(!q||r.code.toLowerCase().includes(q)||r.description.toLowerCase().includes(q)));
+  $("footHint").textContent="Chỉ hiển thị Code còn tồn khác 0. Nhập cộng tồn, Xuất trừ tồn; có thể tìm một Code để xem tất cả khu vực.";
+ }else if(currentTab==="CODE"){
+  headers=["Code","Des","Ngày tạo","Thao tác"];data=codes.filter(r=>!q||r.code.toLowerCase().includes(q)||String(r.description||"").toLowerCase().includes(q));
+  $("footHint").textContent="Nhập danh mục Code trước khi nhập giao dịch kho.";
+ }else{
+  headers=["Ngày","Khu vực","Code","Des","Q'ty","Loại","Tình trạng","Remark"];
+  data=transactions.filter(r=>(currentTab==="HISTORY"||r.area===tabInfo[currentTab].area)&&(!q||r.code.toLowerCase().includes(q)||String(r.remark||"").toLowerCase().includes(q)||String(codeMap().get(r.code)||"").toLowerCase().includes(q))&&(!area||r.area===area)&&(!typ||r.item_type===typ));
+  if(currentTab==="HISTORY"){
+   const from=$("dateFrom").value,to=$("dateTo").value;
+   data=data.filter(r=>(!from||r.trans_date>=from)&&(!to||r.trans_date<=to));
   }
-  rows=result.data||[];
-
-  // Nếu giá trong BOM là NULL, tra bảng giá theo Material = material_prices.code.
-  if(currentTab==="BOM" && rows.length){
-    const priceResult=await db.from("material_prices")
-      .select("code,unit_price,currency,effective_date")
-      .order("effective_date",{ascending:false});
-    if(priceResult.error){
-      console.warn("Không đọc được material_prices:",priceResult.error.message);
-    }else{
-      const priceMap=new Map();
-      (priceResult.data||[]).forEach(p=>{
-        const code=String(p.code||"").trim().toUpperCase();
-        const currency=String(p.currency||"USD").trim().toUpperCase();
-        if(code && currency==="USD" && !priceMap.has(code) && p.unit_price!==null){
-          priceMap.set(code,Number(p.unit_price));
-        }
-      });
-      rows=rows.map(r=>{
-        const hasOwnPrice=r.price_usd!==null && r.price_usd!==undefined && r.price_usd!=="";
-        const lookup=priceMap.get(String(r.material||"").trim().toUpperCase());
-        return {...r,price_usd:hasOwnPrice?r.price_usd:(lookup??null)};
-      });
-    }
-  }
-
-  const models=[...new Set(rows.map(r=>r.model).filter(Boolean))].sort();
-  $("modelFilter").innerHTML='<option value="">Tất cả Model</option>'+
-    models.map(m=>`<option>${escapeHtml(m)}</option>`).join("");
-  updateStats();
-  renderTable();
-}
-async function loadReport(){
-  $("reportPanel").style.display="block";$("dataPanel").style.display="none";
-  $("sectionTitle").textContent="Báo cáo tổng hợp";
-  $("sectionDesc").textContent="Tổng hợp BOM, Vendor Stock và OVER.";
-  const [b,v,o]=await Promise.all([
-    db.from("material_bom").select("id",{count:"exact",head:true}),
-    db.from("vendor_stock").select("id",{count:"exact",head:true}),
-    db.from("v_material_over_calculated").select("excess_cost_usd")
-  ]);
-  if(b.error||v.error||o.error){notify("Không tải được báo cáo: "+(b.error||v.error||o.error).message);return}
-  $("reportBom").textContent=b.count||0;
-  $("reportVendor").textContent=v.count||0;
-  $("reportOver").textContent=(o.data||[]).length;
-  $("reportCost").textContent=fmtMoney((o.data||[]).reduce((sum,r)=>sum+Number(r.excess_cost_usd||0),0));
+ }
+ $("thead").innerHTML="<tr>"+headers.map(h=>`<th>${h}</th>`).join("")+(currentTab==="STOCK"||currentTab==="HISTORY"?"":"<th>Thao tác</th>")+"</tr>";
+ if(!data.length){$("tbody").innerHTML=`<tr><td class="empty" colspan="${headers.length+(currentTab==="STOCK"||currentTab==="HISTORY"?0:1)}">Không có dữ liệu</td></tr>`;updateStats();return}
+ const cm=codeMap();
+ $("tbody").innerHTML=data.map(r=>{
+  if(currentTab==="STOCK")return `<tr><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td class="num">${fmt(r.REAR)}</td><td class="num">${fmt(r.FG)}</td><td class="num">${fmt(r.WD)}</td><td class="num">${fmt(r.RMA)}</td><td class="num"><b>${fmt(r.total)}</b></td></tr>`;
+  if(currentTab==="CODE")return `<tr><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td>${esc((r.created_at||"").slice(0,10))}</td><td><button class="secondary" data-edit-code="${esc(r.code)}">Sửa</button> <button class="danger" data-del-code="${esc(r.code)}">Xóa</button></td></tr>`;
+  return `<tr><td>${esc(r.trans_date)}</td><td>${esc(r.area)}</td><td><b>${esc(r.code)}</b></td><td>${esc(cm.get(r.code)||"")}</td><td class="num">${fmt(r.qty)}</td><td>${esc(r.item_type)}</td><td><span class="badge ${r.movement==="Nhập"?"in":"out"}">${esc(r.movement)}</span></td><td>${esc(r.remark)}</td>${currentTab==="HISTORY"?"":`<td><button class="secondary" data-edit-tx="${r.id}">Sửa</button> <button class="danger" data-del-tx="${r.id}">Xóa</button></td>`}</tr>`;
+ }).join("");
+ document.querySelectorAll("[data-edit-code]").forEach(b=>b.onclick=()=>openCode(codes.find(x=>x.code===b.dataset.editCode)));
+ document.querySelectorAll("[data-del-code]").forEach(b=>b.onclick=()=>deleteCode(b.dataset.delCode));
+ document.querySelectorAll("[data-edit-tx]").forEach(b=>b.onclick=()=>openTx(transactions.find(x=>x.id===b.dataset.editTx)));
+ document.querySelectorAll("[data-del-tx]").forEach(b=>b.onclick=()=>deleteTx(b.dataset.delTx));
+ updateStats();
 }
 function updateStats(){
-  $("statBom").textContent=rows.length;
-  $("statCodes").textContent=new Set(rows.map(r=>r.material).filter(Boolean)).size;
-  $("statOver").textContent=currentTab==="OVER"?rows.length:"—";
-  $("statCost").textContent=currentTab==="OVER"?fmtMoney(rows.reduce((s,r)=>s+Number(r.excess_cost_usd||0),0)):"—";
+ const s=stockSummary();$("sCodes").textContent=s.filter(x=>x.total!==0).length;
+ $("sQty").textContent=fmt(s.reduce((a,x)=>a+x.total,0));
+ $("sIn").textContent=fmt(transactions.filter(x=>x.movement==="Nhập").reduce((a,x)=>a+n(x.qty),0));
+ $("sOut").textContent=fmt(transactions.filter(x=>x.movement==="Xuất").reduce((a,x)=>a+n(x.qty),0));
 }
-function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function renderTable(){
-  const q=$("search").value.toLowerCase();
-  const mf=$("modelFilter").value;
-  const c=config[currentTab];
-  const displayColumns=currentTab==="BOM"
-    ? [["model","Model (Parent Code)"],["parent_code","Parent Code"],["material","Material"],
-       ["qty","Q'ty"],["price_usd","Giá (USD)"],
-       ["material_type","Material Type"],["material_description","Material Description"]]
-    : c.columns;
-
-  const filtered=rows.filter(r=>
-    (!mf||r.model===mf) &&
-    displayColumns.some(([k])=>String(r[k]??"").toLowerCase().includes(q))
-  );
-  if(!filtered.length){
-    $("tbody").innerHTML=`<tr><td class="empty" colspan="${displayColumns.length+1}">Không có dữ liệu</td></tr>`;
-    return;
-  }
-
-  $("tbody").innerHTML=filtered.map(r=>{
-    const cells=displayColumns.map(([k])=>{
-      let val=r[k];
-      if(val===null || val===undefined || val===""){
-        val=(currentTab==="BOM" && k==="price_usd")?"Chưa có giá":"";
-      }else if(["price_usd","excess_cost_usd"].includes(k)){
-        val=fmtMoney(val);
-      }else if(["qty","actual_qty","excess_qty"].includes(k)){
-        val=fmt(val);
-      }
-      if(k==="excess_qty")return `<td><span class="pill ${Number(val)>0?"over":""}">${escapeHtml(val)}</span></td>`;
-      if(k==="bom_status")return `<td><span class="pill ${r.bom_found?"":"over"}">${r.bom_found?"Đã khớp":"Chưa có BOM"}</span></td>`;
-      return `<td>${escapeHtml(val)}</td>`;
-    }).join("");
-    const buttons=`<button class="secondary" data-edit="${r.id}">Sửa</button> <button class="danger" data-delete="${r.id}">Xóa</button>`;
-    return `<tr>${cells}<td>${buttons}</td></tr>`;
-  }).join("");
-
-  document.querySelectorAll("[data-edit]").forEach(b=>
-    b.onclick=()=>openModal(rows.find(r=>String(r.id)===b.dataset.edit))
-  );
-  document.querySelectorAll("[data-delete]").forEach(b=>
-    b.onclick=()=>deleteRow(b.dataset.delete)
-  );
+function field(label,name,type="text",value="",required=true,opts=null){
+ let control=opts?`<select name="${name}" ${required?"required":""}>${opts.map(o=>`<option ${o===value?"selected":""}>${esc(o)}</option>`).join("")}</select>`:`<input name="${name}" type="${type}" value="${esc(value)}" ${required?"required":""} ${type==="number"?'min="0" step="0.001"':""}>`;
+ return `<div class="field"><label>${label}</label>${control}</div>`;
 }
-function openModal(row=null){
-  editingId=row?.id||null;const c=config[currentTab];$("modalTitle").textContent=(row?"Sửa ":"Thêm ")+c.title;
-  $("formFields").innerHTML=c.fields.map(([key,label,type,required])=>`<div class="field ${key==="remark"||key==="supplier"?"full":""}"><label>${label}${required?" *":""}</label><input name="${key}" type="${type}" ${required?"required":""} step="any" value="${escapeHtml(row?.[key]??"")}"></div>`).join("");
-  $("modal").classList.add("open");
+function openCode(row=null){
+ editId=row?.code||null;$("modalTitle").textContent=row?"Sửa Code":"Thêm Code";
+ $("formFields").innerHTML=field("Code","code","text",row?.code||"")+field("Des","description","text",row?.description||"",false);
+ $("modal").classList.add("open");$("dataForm").dataset.kind="code";
 }
-function closeModal(){$("modal").classList.remove("open")}
+function openTx(row=null){
+ editId=row?.id||null;const area=tabInfo[currentTab].area;
+ $("modalTitle").textContent=row?"Sửa giao dịch":`Thêm giao dịch ${area}`;
+ $("formFields").innerHTML=field("Ngày","trans_date","date",row?.trans_date||today())+
+ field("Code","code","text",row?.code||"")+field("Q'ty","qty","number",row?.qty??1)+
+ field("Loại","item_type","text",row?.item_type||"OK",true,typeOptions)+
+ field("Tình trạng","movement","text",row?.movement||"Nhập",true,["Nhập","Xuất"])+
+ field("Remark","remark","text",row?.remark||"",false)+`<input type="hidden" name="area" value="${esc(row?.area||area)}">`;
+ $("modal").classList.add("open");$("dataForm").dataset.kind="tx";
+}
+function closeModal(){$("modal").classList.remove("open");editId=null}
+async function deleteCode(code){
+ if(!confirm("Xóa Code "+code+"? Chỉ xóa được khi Code chưa có giao dịch."))return;
+ const {error}=await db.from("code_master").delete().eq("code",code);
+ if(error)notify(error.message,true);else{notify("Đã xóa Code.");await loadAll()}
+}
+async function deleteTx(id){
+ if(!confirm("Xóa giao dịch này? Tồn sẽ được tính lại."))return;
+ const {error}=await db.from("stock_transactions").delete().eq("id",id);
+ if(error)notify(error.message,true);else{notify("Đã xóa giao dịch.");await loadAll()}
+}
 $("dataForm").onsubmit=async e=>{
-  e.preventDefault();const c=config[currentTab],fd=new FormData(e.target),payload={};
-  c.fields.forEach(([k,,type])=>{let v=fd.get(k);payload[k]=type==="number"?Number(v):v});
-  let res=editingId?await db.from(c.table).update(payload).eq("id",editingId):await db.from(c.table).insert(payload);
-  if(res.error){notify(res.error.message);return}
-  closeModal();await loadData();
+ e.preventDefault();const f=new FormData(e.target),v=Object.fromEntries(f.entries());let result;
+ if(e.target.dataset.kind==="code"){
+  const code=v.code.trim().toUpperCase();
+  result=editId?await db.from("code_master").update({description:v.description}).eq("code",editId):await db.from("code_master").upsert({code,description:v.description},{onConflict:"code"});
+ }else{
+  v.qty=n(v.qty);v.code=v.code.trim().toUpperCase();v.area=v.area;
+  const exists=codes.some(c=>c.code===v.code);
+  if(!exists){notify("Code chưa có trong tab CODE. Hãy nhập danh mục Code trước.",true);return}
+  result=editId?await db.from("stock_transactions").update(v).eq("id",editId):await db.from("stock_transactions").insert(v);
+ }
+ if(result.error){notify(result.error.message,true);return}
+ closeModal();notify("Đã lưu dữ liệu.");await loadAll();
 };
-async function deleteRow(id){
-  if(!confirm("Bạn chắc chắn muốn xóa dữ liệu này?"))return;
-  const {error}=await db.from(config[currentTab].table).delete().eq("id",id);
-  if(error)notify(error.message);else await loadData();
+function templateRows(){
+ if(currentTab==="CODE")return {name:"Mau_CODE",headers:["Code","Des"],rows:[["GH02-29024A","TAPE INSULATION..."]]};
+ const a=tabInfo[currentTab].area;
+ return {name:"Mau_"+a.replaceAll(" ","_"),headers:["Ngày","Code","Q'ty","Loại","Tình trạng","Remark"],rows:[[today(),"GH02-29024A",1,"OK","Nhập","Ghi chú"]]};
 }
-$("exportBtn").onclick=()=>{
-  if(!rows.length){notify("Không có dữ liệu để xuất.");return}
-  const c=config[currentTab],data=rows.map(r=>Object.fromEntries(c.columns.map(([k,l])=>[l,r[k]??""])));
-  const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,currentTab);
-  XLSX.writeFile(wb,`MM_${currentTab}_${new Date().toISOString().slice(0,10)}.xlsx`);
-};
-$("excelFile").onchange=async e=>{
-  const file=e.target.files[0];if(!file)return;
-  if(currentTab==="REPORT"){notify("Chọn tab dữ liệu trước khi Import.");e.target.value="";return}
-  const c=config[currentTab],reader=new FileReader();
-  reader.onload=async ev=>{
-    try{
-      const wb=XLSX.read(ev.target.result,{type:"array"}),data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
-      if(!data.length){notify("File không có dữ liệu.");return}
-      const aliases={};c.fields.forEach(([k,l])=>{aliases[k.toLowerCase()]=k;aliases[l.toLowerCase()]=k});
-      const payload=data.map(item=>{const out={};Object.entries(item).forEach(([k,v])=>{const target=aliases[String(k).trim().toLowerCase()];if(target)out[target]=["qty","price_usd","stock_qty","actual_qty"].includes(target)?Number(v):String(v)});return out});
-      const {error}=await db.from(c.table).insert(payload);
-      if(error)notify("Import lỗi: "+error.message);else{notify(`Đã import ${payload.length} dòng.`);await loadData()}
-    }catch(err){notify("Không đọc được file: "+err.message)}
-    e.target.value="";
-  };reader.readAsArrayBuffer(file);
-};
+function downloadTemplate(){
+ const t=templateRows(),ws=XLSX.utils.aoa_to_sheet([t.headers,...t.rows]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Import");XLSX.writeFile(wb,t.name+".xlsx");
+}
+function exportExcel(){
+ let data=[];
+ if(currentTab==="STOCK")data=stockSummary().map(r=>({Code:r.code,Des:r.description,REAR:r.REAR,"THÀNH PHẨM":r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total}));
+ else if(currentTab==="CODE")data=codes.map(r=>({Code:r.code,Des:r.description}));
+ else data=transactions.filter(r=>currentTab==="HISTORY"||r.area===tabInfo[currentTab].area).map(r=>({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}));
+ const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,currentTab);XLSX.writeFile(wb,currentTab+"_Export.xlsx");
+}
+function valOf(row,names){for(const name of names){if(row[name]!==undefined&&row[name]!==null&&String(row[name]).trim()!=="")return row[name]}return ""}
+async function importExcel(file){
+ const data=await file.arrayBuffer(),wb=XLSX.read(data,{type:"array",cellDates:true}),ws=wb.Sheets[wb.SheetNames[0]],items=XLSX.utils.sheet_to_json(ws,{defval:""});
+ if(!items.length){notify("File Excel không có dữ liệu.",true);return}
+ const norm=x=>String(x||"").trim().toLowerCase().replace(/[\s_'’\-]/g,"");
+ if(currentTab==="CODE"){
+  const batch=items.map(r=>({code:String(valOf(r,["Code","code"])||"").trim().toUpperCase(),description:String(valOf(r,["Des","Description","description"])||"").trim()})).filter(x=>x.code);
+  if(!batch.length){notify("Không tìm thấy cột Code.",true);return}
+  const {error}=await db.from("code_master").upsert(batch,{onConflict:"code"});
+  if(error)notify(error.message,true);else{notify("Đã nhập "+batch.length+" Code.");await loadAll()}
+ }else{
+  const area=tabInfo[currentTab].area,cm=codeMap(),batch=[];
+  for(const r of items){
+   const code=String(valOf(r,["Code","code"])||"").trim().toUpperCase();if(!code)continue;
+   let date=valOf(r,["Ngày","Date","trans_date"]);if(date instanceof Date)date=date.toISOString().slice(0,10);else if(typeof date==="number")date=XLSX.SSF.format("yyyy-mm-dd",date);else date=String(date||today()).slice(0,10);
+   const qty=n(valOf(r,["Q'ty","Qty","qty"])),item_type=String(valOf(r,["Loại","Type","item_type"])||"OK").trim().toUpperCase();
+   const movement=String(valOf(r,["Tình trạng","Tình_trạng","Movement","movement"])||"Nhập").trim();
+   const remark=String(valOf(r,["Remark","remark","Ghi chú"])||"");
+   if(!cm.has(code)){notify("Code "+code+" chưa có trong tab CODE. Hãy import Code trước.",true);return}
+   if(!qty||!typeOptions.includes(item_type)||!["Nhập","Xuất"].includes(movement)){notify("Kiểm tra Q'ty, Loại (OK/NG/TP SX/TP WIP) và Tình trạng (Nhập/Xuất) ở file Excel.",true);return}
+   batch.push({area,trans_date:date,code,qty,item_type,movement,remark});
+  }
+  if(!batch.length){notify("Không tìm thấy dòng giao dịch hợp lệ.",true);return}
+  const {error}=await db.from("stock_transactions").insert(batch);
+  if(error)notify(error.message,true);else{notify("Đã nhập "+batch.length+" giao dịch "+area+".");await loadAll()}
+ }
+ $("excelFile").value="";
+}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+$("loginBtn").onclick=async()=>{const {error}=await db.auth.signInWithPassword({email:$("email").value,password:$("password").value});$("loginMsg").textContent=error?.message||"Đăng nhập thành công."};
+$("logoutBtn").onclick=()=>db.auth.signOut();
+$("addBtn").onclick=()=>currentTab==="CODE"?openCode():openTx();
+$("cancelBtn").onclick=closeModal;$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};
+$("refreshBtn").onclick=loadAll;$("search").oninput=render;$("areaFilter").onchange=render;$("typeFilter").onchange=render;$("dateFrom").onchange=render;$("dateTo").onchange=render;
+$("templateBtn").onclick=downloadTemplate;$("exportBtn").onclick=exportExcel;
+$("excelFile").onchange=e=>{if(e.target.files[0])importExcel(e.target.files[0])};
 init();
 </script>
-</body>
-</html>
+</body></html>
