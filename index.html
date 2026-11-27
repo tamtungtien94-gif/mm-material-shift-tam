@@ -178,9 +178,11 @@ function render(){
  const q=$("search").value.trim().toLowerCase(),area=$("areaFilter").value,typ=$("typeFilter").value;
  let data=[],headers=[];
  if(currentTab==="STOCK"){
-  headers=["MODEL","Code","Des","REAR","TP","WD","RMA","Tổng tồn"];
-  data=stockSummary().filter(r=>(!area||({REAR:r.REAR, "TP":r.FG,WD:r.WD,RMA:r.RMA}[area]!==0))&&(!q||r.model.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||r.description.toLowerCase().includes(q)));
-  $("footHint").textContent="Chỉ hiển thị Code còn tồn khác 0. Nhập cộng tồn, Xuất trừ tồn; có thể tìm một Code để xem tất cả khu vực.";
+  const selectedArea=area==="THÀNH PHẨM"?"TP":area;
+  const areaKey={REAR:"REAR",TP:"FG",WD:"WD",RMA:"RMA"};
+  headers=["MODEL","Code","Des",...(selectedArea?[selectedArea]:["REAR","TP","WD","RMA"]),"Tổng tồn"];
+  data=stockSummary().filter(r=>(!selectedArea||r[areaKey[selectedArea]]!==0)&&(!q||String(r.model||"").toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||r.description.toLowerCase().includes(q)));
+  $("footHint").textContent=selectedArea?`Đang hiển thị tồn riêng khu vực ${selectedArea}. Chọn “Tất cả khu vực” để xem tồn tổng hợp.`:"Đang hiển thị tồn của tất cả khu vực.";
  }else if(currentTab==="CODE"){
   headers=["Code tổng","Code","Des","MODEL","Ngày tạo","Thao tác"];data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(total=>({...r,code_total:total,code_totals:totals}))}).filter(r=>!q||String(r.code_total||"").toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||String(r.description||"").toLowerCase().includes(q)||String(r.model||"").toLowerCase().includes(q));
   $("footHint").textContent="Nhập danh mục Code trước khi nhập giao dịch kho.";
@@ -197,7 +199,7 @@ function render(){
  if(!data.length){$("tbody").innerHTML=`<tr><td class="empty" colspan="${headers.length+(currentTab==="STOCK"||currentTab==="HISTORY"?0:1)}">Không có dữ liệu</td></tr>`;updateStats();return}
  const cm=codeMap();
  $("tbody").innerHTML=data.map(r=>{
-  if(currentTab==="STOCK")return `<tr><td>${esc(r.model||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td class="num">${fmt(r.REAR)}</td><td class="num">${fmt(r.FG)}</td><td class="num">${fmt(r.WD)}</td><td class="num">${fmt(r.RMA)}</td><td class="num"><b>${fmt(r.total)}</b></td></tr>`;
+  if(currentTab==="STOCK"){const selectedArea=$("areaFilter").value==="THÀNH PHẨM"?"TP":$("areaFilter").value;const vals=selectedArea?[{label:selectedArea,value:r[selectedArea==="TP"?"FG":selectedArea]}]:[{label:"REAR",value:r.REAR},{label:"TP",value:r.FG},{label:"WD",value:r.WD},{label:"RMA",value:r.RMA}];const total=selectedArea?vals[0].value:r.total;return `<tr><td>${esc(r.model||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td>${vals.map(v=>`<td class="num">${fmt(v.value)}</td>`).join("")}<td class="num"><b>${fmt(total)}</b></td></tr>`;}
   if(currentTab==="CODE")return `<tr><td>${esc(r.code_total||"")}</td><td><b>${esc(r.code)}</b></td><td>${esc(r.description)}</td><td>${esc(r.model||"")}</td><td>${esc((r.created_at||"").slice(0,10))}</td><td><button class="secondary" data-edit-code="${esc(r.code)}">Sửa</button> <button class="danger" data-del-code="${esc(r.code)}">Xóa</button></td></tr>`;
   const noTotal=["REAR","WD","RMA"].includes(currentTab);
   return `<tr><td>${esc(r.trans_date)}</td><td>${esc(r.area)}</td><td><b>${esc(r.code)}</b></td>${noTotal?"":`<td>${esc(r.code_total||"")}</td>`}<td>${esc(cm.get(r.code)||"")}</td><td class="num">${fmt(r.qty)}</td><td>${esc(r.item_type)}</td><td><span class="badge ${r.movement==="Nhập"?"in":"out"}">${esc(r.movement)}</span></td><td>${esc(r.remark)}</td>${currentTab==="HISTORY"?"":`<td><button class="secondary" data-edit-tx="${r.id}">Sửa</button> <button class="danger" data-del-tx="${r.id}">Xóa</button></td>`}</tr>`;
@@ -311,7 +313,7 @@ function downloadTemplate(){
 }
 function exportExcel(){
  let data=[];
- if(currentTab==="STOCK")data=stockSummary().map(r=>({MODEL:r.model,Code:r.code,Des:r.description,REAR:r.REAR,"TP":r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total}));
+ if(currentTab==="STOCK"){const choice=prompt("Chọn khu vực xuất Excel:\\n1 = Tất cả khu vực\\n2 = REAR\\n3 = TP\\n4 = WD\\n5 = RMA","1");if(choice===null)return;const pick={"1":"","2":"REAR","3":"TP","4":"WD","5":"RMA"};if(!(choice in pick)){notify("Lựa chọn không hợp lệ.",true);return;}const selected=pick[choice];data=stockSummary().filter(r=>!selected||r[selected==="TP"?"FG":selected]!==0).map(r=>{const base={MODEL:r.model,Code:r.code,Des:r.description};if(!selected)return {...base,REAR:r.REAR,TP:r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total};const value=r[selected==="TP"?"FG":selected];return {...base,[selected]:value,"Tổng tồn":value};});}
  else if(currentTab==="CODE")data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(code_total=>({"Code tổng":code_total,Code:r.code,Des:r.description,MODEL:r.model||""}))});
  else data=transactions.filter(r=>currentTab==="HISTORY"||r.area===tabInfo[currentTab].area).map(r=>currentTab!=="HISTORY"&&["REAR","WD","RMA"].includes(currentTab)?({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}):({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Code tổng":r.code_total||"","Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}));
  const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,currentTab);XLSX.writeFile(wb,currentTab+"_Export.xlsx");
