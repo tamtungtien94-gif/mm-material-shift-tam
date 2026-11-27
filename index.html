@@ -314,6 +314,14 @@ async function saveForm(e){
   v.qty=n(v.qty);v.code=v.code.trim().toUpperCase();v.area=v.area;if(["REAR","WD","RMA"].includes(v.area))v.code_total="";
   const exists=codes.some(c=>c.code===v.code);
   if(!exists){notify("Code chưa có trong tab CODE. Hãy nhập danh mục Code trước.",true);return}
+  if(v.area==="THÀNH PHẨM"&&v.movement==="Xuất"){
+   const available=transactions
+    .filter(t=>t.area==="THÀNH PHẨM"&&t.code===v.code&&t.item_type===v.item_type&&t.id!==editId)
+    .reduce((sum,t)=>sum+(t.movement==="Nhập"?n(t.qty):-n(t.qty)),0);
+   if(v.qty<=0){notify("Q'ty phải lớn hơn 0.",true);return}
+   if(available<=0){notify(`Không có tồn loại ${v.item_type} cho Code ${v.code}. Chọn đúng loại đang có tồn.`,true);return}
+   if(v.qty>available){notify(`Không đủ tồn loại ${v.item_type}. Hiện còn ${fmt(available)}, bạn đang xuất ${fmt(v.qty)}.`,true);return}
+  }
   result=editId?await db.from("stock_transactions").update(v).eq("id",editId):await db.from("stock_transactions").insert(v);
  }
  if(result.error){notify(result.error.message,true);return}
@@ -323,18 +331,31 @@ function templateRows(){
  if(currentTab==="CODE")return {name:"Mau_CODE",headers:["Code tổng","Code","Des","MODEL"],rows:[["CT001","GH02-29024A","TAPE INSULATION...","S958"],["CT002","GH02-29024A","TAPE INSULATION...","S958"]]};
  const a=tabInfo[currentTab].area;
  const noTotal=["REAR","WD","RMA"].includes(currentTab);
- const headers=noTotal?["Ngày","Code","Q'ty","Loại","Tình trạng","Remark"]:["Ngày","Code","Code tổng","Q'ty","Loại","Tình trạng","Remark"];
- const rows=noTotal?[[today(),"GH02-29024A",1,"OK","Nhập","Ghi chú"]]:[[today(),"GH02-29024A","CT001",1,"OK","Nhập","Ghi chú"]];
+ const headers=noTotal?["Code","Q'ty","Loại","Tình trạng","Remark"]:["Code","Code tổng","Q'ty","Loại","Tình trạng","Remark"];
+ const rows=noTotal?[["GH02-29024A",1,"OK","Nhập","Ghi chú"]]:[["GH02-29024A","CT001",1,"OK","Nhập","Ghi chú"]];
  return {name:"Mau_"+a.replaceAll(" ","_"),headers,rows};
 }
+function formatExcelSheet(ws,headers,rows){
+ const keys=headers||[];
+ ws["!cols"]=keys.map((key,i)=>{
+  const values=(rows||[]).map(row=>Array.isArray(row)?row[i]:String(row?.[key]??""));
+  const maxLen=Math.max(String(key).length,...values.map(v=>String(v??"").length));
+  return {wch:Math.min(52,Math.max(12,maxLen+4))};
+ });
+ if(ws["!ref"])ws["!autofilter"]={ref:ws["!ref"]};
+ ws["!freeze"]={xSplit:0,ySplit:1,topLeftCell:"A2",activePane:"bottomLeft",state:"frozen"};
+ ws["!sheetViews"]=[{showGridLines:false}];
+}
 function downloadTemplate(){
- const t=templateRows(),ws=XLSX.utils.aoa_to_sheet([t.headers,...t.rows]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Import");XLSX.writeFile(wb,t.name+".xlsx");
+ const t=templateRows(),ws=XLSX.utils.aoa_to_sheet([t.headers,...t.rows]),wb=XLSX.utils.book_new();
+ formatExcelSheet(ws,t.headers,t.rows);
+ XLSX.utils.book_append_sheet(wb,ws,"Import");XLSX.writeFile(wb,t.name+".xlsx");
 }
 function exportExcel(){
  let data=[];
  if(currentTab==="STOCK"){const choice=prompt("Chọn khu vực xuất Excel:\\n1 = Tất cả khu vực\\n2 = REAR\\n3 = TP\\n4 = WD\\n5 = RMA","1");if(choice===null)return;const pick={"1":"","2":"REAR","3":"TP","4":"WD","5":"RMA"};if(!(choice in pick)){notify("Lựa chọn không hợp lệ.",true);return;}const selected=pick[choice];data=stockSummary().filter(r=>!selected||r[selected==="TP"?"FG":selected]!==0).map(r=>{const base={MODEL:r.model,Code:r.code,Des:r.description};if(!selected)return {...base,REAR:r.REAR,TP:r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total};const value=r[selected==="TP"?"FG":selected];return {...base,[selected]:value,"Tổng tồn":value};});}
  else if(currentTab==="CODE")data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(code_total=>({"Code tổng":code_total,Code:r.code,Des:r.description,MODEL:r.model||""}))});
- else data=transactions.filter(r=>currentTab==="HISTORY"||r.area===tabInfo[currentTab].area).map(r=>currentTab!=="HISTORY"&&["REAR","WD","RMA"].includes(currentTab)?({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}):({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Code tổng":r.code_total||"","Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}));
+ else data=transactions.filter(r=>currentTab==="HISTORY"||r.area===tabInfo[currentTab].area).map(r=>currentTab!=="HISTORY"&&["REAR","WD","RMA"].includes(currentTab)?({Khu_vực:r.area,Code:r.code,"Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}):({Khu_vực:r.area,Code:r.code,"Code tổng":r.code_total||"","Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}));
  const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();
  // Set readable column widths so MODEL, Code, Des and quantities are not clipped in Excel.
  const headers=(data.length?Object.keys(data[0]):[]);
@@ -345,6 +366,7 @@ function exportExcel(){
  });
  if(ws["!ref"]) ws["!autofilter"]={ref:ws["!ref"]};
  ws["!freeze"]={xSplit:0,ySplit:1,topLeftCell:"A2",activePane:"bottomLeft",state:"frozen"};
+ ws["!sheetViews"]=[{showGridLines:false}];
  XLSX.utils.book_append_sheet(wb,ws,currentTab);
  XLSX.writeFile(wb,currentTab+"_Export.xlsx");
 }
@@ -367,7 +389,7 @@ async function importExcel(file){
   const area=tabInfo[currentTab].area,cm=codeMap(),batch=[];
   for(const r of items){
    const code=String(valOf(r,["Code","code"])||"").trim().toUpperCase();if(!code)continue;
-   let date=valOf(r,["Ngày","Date","trans_date"]);if(date instanceof Date)date=date.toISOString().slice(0,10);else if(typeof date==="number")date=XLSX.SSF.format("yyyy-mm-dd",date);else date=String(date||today()).slice(0,10);
+   const date=today(); // Không lấy ngày từ Excel; giao dịch import luôn dùng ngày hiện tại.
    const qty=n(valOf(r,["Q'ty","Qty","qty"])),item_type=String(valOf(r,["Loại","Type","item_type"])||"OK").trim().toUpperCase();
    const movement=String(valOf(r,["Tình trạng","Tình_trạng","Movement","movement"])||"Nhập").trim();
    const remark=String(valOf(r,["Remark","remark","Ghi chú"])||"");
