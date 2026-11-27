@@ -316,7 +316,18 @@ function exportExcel(){
  if(currentTab==="STOCK"){const choice=prompt("Chọn khu vực xuất Excel:\\n1 = Tất cả khu vực\\n2 = REAR\\n3 = TP\\n4 = WD\\n5 = RMA","1");if(choice===null)return;const pick={"1":"","2":"REAR","3":"TP","4":"WD","5":"RMA"};if(!(choice in pick)){notify("Lựa chọn không hợp lệ.",true);return;}const selected=pick[choice];data=stockSummary().filter(r=>!selected||r[selected==="TP"?"FG":selected]!==0).map(r=>{const base={MODEL:r.model,Code:r.code,Des:r.description};if(!selected)return {...base,REAR:r.REAR,TP:r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total};const value=r[selected==="TP"?"FG":selected];return {...base,[selected]:value,"Tổng tồn":value};});}
  else if(currentTab==="CODE")data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(code_total=>({"Code tổng":code_total,Code:r.code,Des:r.description,MODEL:r.model||""}))});
  else data=transactions.filter(r=>currentTab==="HISTORY"||r.area===tabInfo[currentTab].area).map(r=>currentTab!=="HISTORY"&&["REAR","WD","RMA"].includes(currentTab)?({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}):({Ngày:r.trans_date,Khu_vực:r.area,Code:r.code,"Code tổng":r.code_total||"","Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}));
- const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,currentTab);XLSX.writeFile(wb,currentTab+"_Export.xlsx");
+ const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();
+ // Set readable column widths so MODEL, Code, Des and quantities are not clipped in Excel.
+ const headers=(data.length?Object.keys(data[0]):[]);
+ ws["!cols"]=headers.map(key=>{
+   const values=data.map(row=>row[key]===null||row[key]===undefined?"":String(row[key]));
+   const maxLen=Math.max(key.length,...values.map(v=>v.length));
+   return {wch:Math.min(48,Math.max(12,maxLen+3))};
+ });
+ if(ws["!ref"]) ws["!autofilter"]={ref:ws["!ref"]};
+ ws["!freeze"]={xSplit:0,ySplit:1,topLeftCell:"A2",activePane:"bottomLeft",state:"frozen"};
+ XLSX.utils.book_append_sheet(wb,ws,currentTab);
+ XLSX.writeFile(wb,currentTab+"_Export.xlsx");
 }
 function valOf(row,names){for(const name of names){if(row[name]!==undefined&&row[name]!==null&&String(row[name]).trim()!=="")return row[name]}return ""}
 async function importExcel(file){
