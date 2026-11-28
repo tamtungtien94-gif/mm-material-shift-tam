@@ -436,40 +436,124 @@ function exportExcel(){
  XLSX.writeFile(wb,currentTab+"_Export.xlsx");
 }
 function valOf(row,names){for(const name of names){if(row[name]!==undefined&&row[name]!==null&&String(row[name]).trim()!=="")return row[name]}return ""}
-async function importExcel(file){
- const importAllowed=currentTab==="CODE"?(can("CODE","add")||can("CODE","edit")):( ["REAR","FG","WD","RMA"].includes(currentTab)&&(can(currentTab,"in")||can(currentTab,"out")) );
- if(!importAllowed){notify("Bạn không có quyền import Excel ở tab này.",true);$("excelFile").value="";return;}
- const data=await file.arrayBuffer(),wb=XLSX.read(data,{type:"array",cellDates:true}),ws=wb.Sheets[wb.SheetNames[0]],items=XLSX.utils.sheet_to_json(ws,{defval:""});
- if(!items.length){notify("File Excel không có dữ liệu.",true);return}
- const norm=x=>String(x||"").trim().toLowerCase().replace(/[\s_'’\-]/g,"");
- if(currentTab==="CODE"){
-  const rows=items.map(r=>({code_total:String(valOf(r,["Code tổng","Code Tong","code_total"])||"").trim().toUpperCase(),code:String(valOf(r,["Code","code"])||"").trim().toUpperCase(),description:String(valOf(r,["Des","Description","description"])||"").trim(),model:String(valOf(r,["MODEL","Model","model"])||"").trim()})).filter(x=>x.code);
-  if(!rows.length){notify("Không tìm thấy cột Code.",true);return}
-  const masterMap=new Map(),linkMap=new Map(),conflicts=[];
-  for(const r of rows){const prev=masterMap.get(r.code);if(prev&&(prev.description!==r.description||prev.model!==r.model))conflicts.push(r.code);else if(!prev)masterMap.set(r.code,{code:r.code,code_total:"",description:r.description,model:r.model});if(r.code_total)linkMap.set(r.code_total+"\u0000"+r.code,{code_total:r.code_total,code:r.code})}
-  if(conflicts.length){notify("File có cùng Code nhưng Des/MODEL không thống nhất: "+[...new Set(conflicts)].slice(0,10).join(", "),true);return}
-  const {error:masterError}=await db.from("code_master").upsert([...masterMap.values()],{onConflict:"code"});
-  if(masterError){notify(masterError.message,true);return}
-  const {error:linkError}=await db.from("code_total_links").upsert([...linkMap.values()],{onConflict:"code_total,code"});
-  if(linkError)notify(linkError.message,true);else{notify("Đã nhập "+masterMap.size+" Code và "+linkMap.size+" liên kết Code tổng.");await loadAll()}
- }else{
-  const area=tabInfo[currentTab].area,cm=codeMap(),batch=[];
-  for(const r of items){
-   const code=String(valOf(r,["Code","code"])||"").trim().toUpperCase();if(!code)continue;
-   const date=today(); // Không lấy ngày từ Excel; giao dịch import luôn dùng ngày hiện tại.
-   const qty=n(valOf(r,["Q'ty","Qty","qty"])),item_type=String(valOf(r,["Loại","Type","item_type"])||"OK").trim().toUpperCase();
-   const movement=String(valOf(r,["Tình trạng","Tình_trạng","Movement","movement"])||"Nhập").trim();
-   const remark=String(valOf(r,["Remark","remark","Ghi chú"])||"");
-   const code_total=String(valOf(r,["Code tổng","Code Tong","code_total"])||"").trim().toUpperCase();
-   if(!cm.has(code)){notify("Code "+code+" chưa có trong tab CODE. Hãy import Code trước.",true);return}
-   if(!qty||!typeOptionsForArea(area).includes(item_type)||!["Nhập","Xuất"].includes(movement)){notify("Kiểm tra Q'ty, Loại ("+typeOptionsForArea(area).join("/")+") và Tình trạng (Nhập/Xuất) ở file Excel.",true);return}
-   batch.push({area,trans_date:date,code_total,code,qty,item_type,movement,remark});
-  }
-  if(!batch.length){notify("Không tìm thấy dòng giao dịch hợp lệ.",true);return}
-  const {error}=await db.from("stock_transactions").insert(batch);
-  if(error)notify(error.message,true);else{notify("Đã nhập "+batch.length+" giao dịch "+area+".");await loadAll()}
+function normalizeExcelHeader(value){
+ return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/đ/g,"d").replace(/Đ/g,"D").toLowerCase().replace(/[^a-z0-9]/g,"");
+}
+function excelValue(row,aliases){
+ const wanted=new Set(aliases.map(normalizeExcelHeader));
+ for(const [key,value] of Object.entries(row||{})){
+  if(wanted.has(normalizeExcelHeader(key)) && value!==undefined && value!==null && String(value).trim()!=="") return value;
  }
- $("excelFile").value="";
+ return "";
+}
+function parseExcelQty(value){
+ if(typeof value==="number") return Number.isFinite(value)?value:NaN;
+ let s=String(value??"").trim().replace(/\s/g,"");
+ if(!s) return NaN;
+ // Accept Excel text numbers using either 1,234.5 or 1.234,5 notation.
+ if(s.includes(",")&&s.includes(".")){
+  if(s.lastIndexOf(",")>s.lastIndexOf(".")) s=s.replace(/\./g,"").replace(",",".");
+  else s=s.replace(/,/g,"");
+ }else if(s.includes(",")){
+  const parts=s.split(",");
+  s=parts.length===2 && parts[1].length>0 && parts[1].length!==3 ? parts[0]+"."+parts[1] : parts.join("");
+ }else if((s.match(/\./g)||[]).length>1){
+  const parts=s.split(".");
+  s=parts.slice(0,-1).join("")+"."+parts.at(-1);
+ }
+ const n=Number(s);
+ return Number.isFinite(n)?n:NaN;
+}
+function normalizeMovement(value){
+ const v=String(value??"").trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+ if(v==="nhap") return "Nhập";
+ if(v==="xuat") return "Xuất";
+ return "";
+}
+async function importExcel(file){
+ const input=$("excelFile");
+ try{
+  if(!window.XLSX) throw new Error("Không tải được thư viện đọc Excel. Hãy tải lại website rồi thử lại.");
+  const importAllowed=currentTab==="CODE"?(can("CODE","add")||can("CODE","edit")):(["REAR","FG","WD","RMA"].includes(currentTab)&&(can(currentTab,"in")||can(currentTab,"out")));
+  if(!importAllowed) throw new Error("Bạn không có quyền import Excel ở tab này.");
+  const data=await file.arrayBuffer();
+  const wb=XLSX.read(data,{type:"array",cellDates:true});
+  const firstSheet=wb.SheetNames?.[0];
+  if(!firstSheet) throw new Error("File Excel không có sheet dữ liệu.");
+  const ws=wb.Sheets[firstSheet];
+  const items=XLSX.utils.sheet_to_json(ws,{defval:"",raw:true});
+  if(!items.length) throw new Error("File Excel không có dữ liệu hoặc chỉ có dòng tiêu đề.");
+
+  if(currentTab==="CODE"){
+   const rows=items.map((r,i)=>({
+    rowNo:i+2,
+    code_total:String(excelValue(r,["Code tổng","Code Tong","code_total"])||"").trim().toUpperCase(),
+    code:String(excelValue(r,["Code","code"])||"").trim().toUpperCase(),
+    description:String(excelValue(r,["Des","Description","description"])||"").trim(),
+    model:String(excelValue(r,["MODEL","Model","model"])||"").trim()
+   })).filter(x=>x.code);
+   if(!rows.length) throw new Error("Không tìm thấy cột Code. Hãy dùng file mẫu Excel của tab CODE.");
+   const masterMap=new Map(),linkMap=new Map(),conflicts=[];
+   for(const r of rows){
+    const prev=masterMap.get(r.code);
+    if(prev&&(prev.description!==r.description||prev.model!==r.model)) conflicts.push({code:r.code,rowNo:r.rowNo});
+    else if(!prev) masterMap.set(r.code,{code_total:"",code:r.code,description:r.description,model:r.model});
+    if(r.code_total) linkMap.set(r.code_total+"\u0000"+r.code,{code_total:r.code_total,code:r.code});
+   }
+   if(conflicts.length) throw new Error("Code có Des/MODEL không thống nhất tại dòng: "+conflicts.map(x=>x.rowNo+" ("+x.code+")").join(", "));
+   const {error:masterError}=await db.from("code_master").upsert([...masterMap.values()],{onConflict:"code"});
+   if(masterError) throw new Error("Không lưu được danh mục Code: "+masterError.message);
+   if(linkMap.size){
+    const {error:linkError}=await db.from("code_total_links").upsert([...linkMap.values()],{onConflict:"code_total,code"});
+    if(linkError) throw new Error("Đã cập nhật danh mục Code nhưng lỗi liên kết Code tổng: "+linkError.message);
+   }
+   notify("Đã import "+masterMap.size+" Code và "+linkMap.size+" liên kết Code tổng.");
+   await loadAll();
+   return;
+  }
+
+  const area=tabInfo[currentTab].area, cm=codeMap(), batch=[], errors=[];
+  const areaAliases=["Khu vực","Khu_vực","Area"];
+  items.forEach((r,i)=>{
+   const rowNo=i+2;
+   const code=String(excelValue(r,["Code"])||"").trim().toUpperCase();
+   // Bỏ qua dòng trống hoàn toàn, nhưng không bỏ qua dòng có dữ liệu mà thiếu Code.
+   const hasAny=Object.values(r).some(v=>String(v??"").trim()!=="");
+   if(!hasAny) return;
+   if(!code){errors.push("Dòng "+rowNo+": thiếu Code.");return;}
+   const fileArea=String(excelValue(r,areaAliases)||"").trim();
+   if(fileArea){
+    const normalizedArea=normalizeExcelHeader(fileArea);
+    const expected=[currentTab,area,currentTab==="FG"?"TP":""].map(normalizeExcelHeader);
+    if(!expected.includes(normalizedArea)){errors.push("Dòng "+rowNo+": khu vực trong file là "+fileArea+", không khớp tab "+currentTab+".");return;}
+   }
+   const qty=parseExcelQty(excelValue(r,["Q'ty","Qty","Quantity","So luong"]));
+   const item_type=String(excelValue(r,["Loại","Type","item_type"])||"OK").trim().toUpperCase();
+   const movement=normalizeMovement(excelValue(r,["Tình trạng","Tình_trạng","Movement","movement"])||"Nhập");
+   const remark=String(excelValue(r,["Remark","Ghi chú","Note"])||"");
+   const code_total=String(excelValue(r,["Code tổng","Code Tong","code_total"])||"").trim().toUpperCase();
+   if(!cm.has(code)){errors.push("Dòng "+rowNo+": Code "+code+" chưa có trong tab CODE.");return;}
+   if(!Number.isFinite(qty)||qty<=0){errors.push("Dòng "+rowNo+": Q'ty phải là số lớn hơn 0.");return;}
+   if(!typeOptionsForArea(area).includes(item_type)){errors.push("Dòng "+rowNo+": Loại "+item_type+" không hợp lệ. Chỉ nhận "+typeOptionsForArea(area).join("/ ")+".");return;}
+   if(!movement){errors.push("Dòng "+rowNo+": Tình trạng phải là Nhập hoặc Xuất.");return;}
+   const requiredAction=movement==="Nhập"?"in":"out";
+   if(!can(currentTab,requiredAction)){errors.push("Dòng "+rowNo+": tài khoản không có quyền "+movement+" tại "+currentTab+".");return;}
+   batch.push({area,trans_date:today(),code_total,code,qty,item_type,movement,remark});
+  });
+  if(errors.length){
+   const shown=errors.slice(0,12);
+   throw new Error("File Excel có "+errors.length+" lỗi. Chưa lưu dòng nào.\n"+shown.join("\n")+(errors.length>shown.length?"\n... và "+(errors.length-shown.length)+" lỗi khác.":""));
+  }
+  if(!batch.length) throw new Error("Không tìm thấy dòng giao dịch hợp lệ trong file.");
+  const {error}=await db.from("stock_transactions").insert(batch);
+  if(error) throw new Error("Supabase không lưu được giao dịch: "+error.message);
+  notify("Đã import thành công "+batch.length+" giao dịch "+area+".");
+  await loadAll();
+ }catch(error){
+  notify(error?.message||String(error),true);
+ }finally{
+  if(input) input.value="";
+ }
 }
 
 const ADMIN_EMAIL="tamtungtien95@gmail.com";
