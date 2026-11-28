@@ -141,14 +141,22 @@ const typeOptions=["OK","NG","TP SX","TP WIP","IQC","UPK"];
 function typeOptionsForArea(area){
  if(area==="REAR")return ["OK","IQC","UPK"];
  if(area==="THÀNH PHẨM")return ["TP SX","TP WIP"];
+ // Quy tắc mới: WD và RMA chỉ cho phép tạo giao dịch loại NG.
+ if(area==="WD"||area==="RMA")return ["NG"];
  return ["OK","NG"];
+}
+// Giữ khả năng xem tồn OK cũ (nếu đã có dữ liệu lịch sử), nhưng không cho tạo/import OK mới ở WD/RMA.
+function typeDisplayOptionsForArea(area){
+ const allowed=typeOptionsForArea(area);
+ if((area==="WD"||area==="RMA")&&transactions.some(t=>t.area===area&&t.item_type==="OK"))return ["OK",...allowed];
+ return allowed;
 }
 const tabInfo={
  STOCK:{title:"TỒN TỔNG HỢP",desc:"Tồn hiện tại của tất cả Code tại từng khu vực.",table:"stock_transactions"},
  REAR:{title:"QUẢN LÝ REAR",desc:"Nhập/Xuất hàng khu vực REAR.",area:"REAR"},
  FG:{title:"QUẢN LÝ THÀNH PHẨM",desc:"Nhập/Xuất hàng khu vực THÀNH PHẨM.",area:"THÀNH PHẨM"},
- WD:{title:"QUẢN LÝ WD",desc:"Nhập/Xuất hàng khu vực WD.",area:"WD"},
- RMA:{title:"QUẢN LÝ RMA",desc:"Nhập/Xuất hàng khu vực RMA.",area:"RMA"},
+ WD:{title:"QUẢN LÝ WD",desc:"Nhập/Xuất hàng khu vực WD. Loại hàng chỉ sử dụng NG.",area:"WD"},
+ RMA:{title:"QUẢN LÝ RMA",desc:"Nhập/Xuất hàng khu vực RMA. Loại hàng chỉ sử dụng NG.",area:"RMA"},
  HISTORY:{title:"LỊCH SỬ XUẤT NHẬP",desc:"Tra cứu lịch sử giao dịch theo Code, khu vực và ngày."},
  CODE:{title:"DANH MỤC CODE",desc:"Quản lý mã Code và mô tả."}
 };
@@ -232,7 +240,7 @@ function stockSummary(){
 }
 function areaStockSummary(tab){
  const area=tabInfo[tab]?.area;if(!area)return [];
- const grouped=new Map(),cm=codeMap(),mm=modelMap(),types=typeOptionsForArea(area);
+ const grouped=new Map(),cm=codeMap(),mm=modelMap(),types=typeDisplayOptionsForArea(area);
  transactions.filter(t=>t.area===area&&types.includes(t.item_type)).forEach(t=>{
   if(!grouped.has(t.code))grouped.set(t.code,{model:mm.get(t.code)||"",code:t.code,description:cm.get(t.code)||"",byType:Object.fromEntries(types.map(x=>[x,0])),total:0});
   const row=grouped.get(t.code);row.byType[t.item_type]=(row.byType[t.item_type]||0)+signed(t);row.total+=signed(t);
@@ -253,7 +261,7 @@ function render(){
   headers=["Code tổng","Code","Des","MODEL","Ngày tạo","Thao tác"];data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(total=>({...r,code_total:total,code_totals:totals}))}).filter(r=>!q||String(r.code_total||"").toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||String(r.description||"").toLowerCase().includes(q)||String(r.model||"").toLowerCase().includes(q));
   $("footHint").textContent="Nhập danh mục Code trước khi nhập giao dịch kho.";
  }else if(["REAR","FG","WD","RMA"].includes(currentTab)){
-  const cols=typeOptionsForArea(tabInfo[currentTab].area);
+  const cols=typeDisplayOptionsForArea(tabInfo[currentTab].area);
   headers=["MODEL","Code","Des",...cols,"Tổng"];
   data=areaStockSummary(currentTab).filter(r=>(!q||r.model.toLowerCase().includes(q)||r.code.toLowerCase().includes(q)||r.description.toLowerCase().includes(q))&&(!typ||cols.includes(typ)));
   $("footHint").textContent="Đang hiển thị tồn thực tế theo từng Code và loại. Chi tiết nhập/xuất xem tại tab LỊCH SỬ.";
@@ -418,7 +426,7 @@ function exportExcel(){
  if(!isAdmin&&!myPermissions?.[currentTab]?.excel){notify("Bạn không có quyền xuất Excel ở tab này.",true);return}
  let data=[];
  if(currentTab==="STOCK"){const choice=prompt("Chọn khu vực xuất Excel:\n1 = Tất cả khu vực\n2 = REAR\n3 = TP\n4 = WD\n5 = RMA","1");if(choice===null)return;const pick={"1":"","2":"REAR","3":"TP","4":"WD","5":"RMA"};if(!(choice in pick)){notify("Lựa chọn không hợp lệ.",true);return;}const selected=pick[choice];data=stockSummary().filter(r=>!selected||r[selected==="TP"?"FG":selected]!==0).map(r=>{const base={MODEL:r.model,Code:r.code,Des:r.description};if(!selected)return {...base,REAR:r.REAR,TP:r.FG,WD:r.WD,RMA:r.RMA,"Tổng tồn":r.total};const value=r[selected==="TP"?"FG":selected];return {...base,[selected]:value,"Tổng tồn":value};});}
- else if(["REAR","FG","WD","RMA"].includes(currentTab))data=areaStockSummary(currentTab).map(r=>{const row={MODEL:r.model,Code:r.code,Des:r.description};typeOptionsForArea(tabInfo[currentTab].area).forEach(t=>row[t]=r.byType[t]||0);row["Tổng"]=r.total;return row;});
+ else if(["REAR","FG","WD","RMA"].includes(currentTab))data=areaStockSummary(currentTab).map(r=>{const row={MODEL:r.model,Code:r.code,Des:r.description};typeDisplayOptionsForArea(tabInfo[currentTab].area).forEach(t=>row[t]=r.byType[t]||0);row["Tổng"]=r.total;return row;});
  else if(currentTab==="CODE")data=codes.flatMap(r=>{const totals=codeLinks.filter(x=>x.code===r.code).map(x=>x.code_total);return (totals.length?totals:[""]).map(code_total=>({"Code tổng":code_total,Code:r.code,Des:r.description,MODEL:r.model||""}))});
  else data=transactions.filter(r=>currentTab==="HISTORY"||r.area===tabInfo[currentTab].area).map(r=>currentTab!=="HISTORY"&&["REAR","WD","RMA"].includes(currentTab)?({Khu_vực:r.area,Code:r.code,"Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}):({Khu_vực:r.area,Code:r.code,"Code tổng":r.code_total||"","Q'ty":r.qty,Loại:r.item_type,Tình_trạng:r.movement,Remark:r.remark}));
  const ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();
@@ -528,7 +536,7 @@ async function importExcel(file){
     if(!expected.includes(normalizedArea)){errors.push("Dòng "+rowNo+": khu vực trong file là "+fileArea+", không khớp tab "+currentTab+".");return;}
    }
    const qty=parseExcelQty(excelValue(r,["Q'ty","Qty","Quantity","So luong"]));
-   const item_type=String(excelValue(r,["Loại","Type","item_type"])||"OK").trim().toUpperCase();
+   const item_type=String(excelValue(r,["Loại","Type","item_type"])||typeOptionsForArea(area)[0]).trim().toUpperCase();
    const movement=normalizeMovement(excelValue(r,["Tình trạng","Tình_trạng","Movement","movement"])||"Nhập");
    const remark=String(excelValue(r,["Remark","Ghi chú","Note"])||"");
    const code_total=String(excelValue(r,["Code tổng","Code Tong","code_total"])||"").trim().toUpperCase();
