@@ -173,6 +173,12 @@ async function init(){
 async function showApp(){
  $("loginBox").classList.add("hidden");$("app").classList.remove("hidden");
  await loadMyPermissions();$("userState").textContent=isAdmin?"ADM":(session?.user?.email||"Đã đăng nhập");
+ // Khôi phục tab cuối cùng theo từng tài khoản sau khi tải quyền.
+ const savedTab=localStorage.getItem("mm_last_tab_"+(session?.user?.id||""));
+ const allowedTabs=isAdmin?["STOCK","REAR","FG","WD","RMA","HISTORY","CODE","ACCOUNTS"]:PERM_TABS.filter(([key])=>myPermissions?.[key]?.view).map(([key])=>key);
+ const defaultTab=isAdmin?"STOCK":(allowedTabs[0]||"STOCK");
+ const targetTab=(savedTab&&allowedTabs.includes(savedTab))?savedTab:defaultTab;
+ setTab(targetTab);
  await loadAll();updatePermissionControls();
 }
 function showLogin(){$("app").classList.add("hidden");$("loginBox").classList.remove("hidden");$("userState").textContent="Chưa đăng nhập"}
@@ -201,6 +207,7 @@ async function loadAll(){
 }
 function setTab(tab){
  currentTab=tab;
+ if(session?.user?.id) localStorage.setItem("mm_last_tab_"+session.user.id,tab);
  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
  $("title").textContent=tabInfo[tab].title;$("desc").textContent=tabInfo[tab].desc;
  $("areaFilter").classList.toggle("hidden",!["STOCK","HISTORY"].includes(tab));
@@ -497,8 +504,6 @@ async function loadMyPermissions(){
  if(error){notify('Không tải được quyền: '+error.message,true);myPermissions={};return;}
  myPermissions=data?.permissions||{};
  document.querySelectorAll('.tab[data-tab]').forEach(b=>{const key=b.dataset.tab;if(key!=='ACCOUNTS')b.classList.toggle('hidden',!myPermissions?.[key]?.view);});
- const first=PERM_TABS.find(([key])=>myPermissions?.[key]?.view)?.[0];
- if(first) setTab(first);
 }
 async function loadAccounts(){
  if(!isAdmin)return;
@@ -570,7 +575,8 @@ function updatePermissionControls(){
  const submit=$("inlineForm").querySelector('button[type="submit"]');if(submit)submit.disabled=!entryAllowed;
 }
 function setAccountTab(){
- currentTab='ACCOUNTS';document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='ACCOUNTS'));
+ currentTab='ACCOUNTS';
+ if(session?.user?.id) localStorage.setItem("mm_last_tab_"+session.user.id,'ACCOUNTS');document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='ACCOUNTS'));
  $('accountsPanel').classList.remove('hidden');
  document.querySelectorAll('#app > .topline,#app > .notice,#stats,#app > .panel:not(#accountsPanel)').forEach(x=>x.classList.add('hidden'));
  $('actions').classList.add('hidden');loadAccounts();
