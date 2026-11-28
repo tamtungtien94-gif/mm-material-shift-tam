@@ -52,6 +52,22 @@ td.num{padding-right:16px;font-weight:500}td.empty{text-align:center;color:var(-
 @media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.topline{align-items:flex-start}.tabs{width:100%}.tab{flex:1;padding:10px 8px}}
 @media(max-width:700px){.inline-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.inline-grid{grid-template-columns:1fr}header{padding:14px}.wrap{padding:0 10px}.grid{grid-template-columns:1fr 1fr}.formgrid{grid-template-columns:1fr}.field.full{grid-column:auto}}
+
+.overview-layout{display:grid;grid-template-columns:minmax(260px,30%) minmax(0,70%);gap:12px;margin-bottom:16px;align-items:stretch}
+.model-stock-panel{background:#fff;border:1px solid var(--line);border-radius:13px;padding:14px;box-shadow:0 2px 8px #10182808;min-width:0}
+.model-stock-panel h2{font-size:16px;margin:0 0 12px;color:var(--navy)}
+.model-stock-table{width:100%;min-width:0;border-collapse:collapse}
+.model-stock-table th,.model-stock-table td{padding:10px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+.model-stock-table th{background:#f8fafc;font-size:11px;color:#475467;text-transform:uppercase;letter-spacing:.3px}
+.model-stock-table td:last-child,.model-stock-table th:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.model-stock-table tr:last-child td{border-bottom:0}
+.model-stock-table .model-total td{background:#eff6ff;color:#17365d;font-weight:800}
+.model-stock-empty{text-align:center;color:var(--muted);padding:20px 8px!important}
+.overview-right{min-width:0}
+.overview-right .grid{margin:0;grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1050px){.overview-layout{grid-template-columns:1fr}.overview-right .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.overview-right .grid{grid-template-columns:1fr 1fr}.model-stock-table{font-size:12px}}
+
 </style>
 </head>
 <body>
@@ -82,11 +98,24 @@ td.num{padding-right:16px;font-weight:500}td.empty{text-align:center;color:var(-
     </div>
   </div>
   <div id="message" class="notice hidden"></div>
+  <div class="overview-layout">
+    <section class="model-stock-panel">
+      <h2>TỒN THEO MODEL</h2>
+      <div class="tablewrap" style="border:0">
+        <table class="model-stock-table">
+          <thead><tr><th>MODEL</th><th>TỔNG TỒN</th></tr></thead>
+          <tbody id="modelStockBody"><tr><td colspan="2" class="model-stock-empty">Đang tải dữ liệu...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    <div class="overview-right">
   <div class="grid" id="stats">
-    <div class="stat"><small>Tổng mã đang có tồn</small><strong id="sCodes">0</strong></div>
+    <div class="stat"><small>Model đang có tồn</small><strong id="sCodes">0</strong></div>
     <div class="stat"><small>Tổng tồn hiện tại</small><strong id="sQty">0</strong></div>
     <div class="stat"><small>Tổng nhập</small><strong id="sIn">0</strong></div>
     <div class="stat"><small>Tổng xuất</small><strong id="sOut">0</strong></div>
+  </div>
+    </div>
   </div>
   <section class="panel">
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
@@ -295,10 +324,28 @@ function render(){
  updateStats();
 }
 function updateStats(){
- const s=stockSummary();$("sCodes").textContent=s.filter(x=>x.total!==0).length;
+ const s=stockSummary();const modelsWithStock=new Set(s
+  .filter(x=>Number(x.total)>0 && String(x.model||"").trim()!=="")
+  .map(x=>String(x.model).trim().toLocaleUpperCase()));
+ $("sCodes").textContent=modelsWithStock.size;
  $("sQty").textContent=fmt(s.reduce((a,x)=>a+x.total,0));
  $("sIn").textContent=fmt(transactions.filter(x=>x.movement==="Nhập").reduce((a,x)=>a+n(x.qty),0));
  $("sOut").textContent=fmt(transactions.filter(x=>x.movement==="Xuất").reduce((a,x)=>a+n(x.qty),0));
+ const byModel=new Map();
+ s.forEach(row=>{
+  const model=String(row.model||"").trim();
+  const qty=n(row.total);
+  if(!model||qty<=0)return;
+  const key=model.toLocaleUpperCase();
+  const current=byModel.get(key)||{model,qty:0};
+  current.qty+=qty;
+  byModel.set(key,current);
+ });
+ const modelRows=[...byModel.values()].sort((a,b)=>b.qty-a.qty||a.model.localeCompare(b.model,"vi"));
+ const modelTotal=modelRows.reduce((sum,row)=>sum+row.qty,0);
+ $("modelStockBody").innerHTML=modelRows.length
+  ? modelRows.map(row=>`<tr><td><b>${esc(row.model)}</b></td><td>${fmt(row.qty)}</td></tr>`).join("")+`<tr class="model-total"><td>TỔNG CỘNG</td><td>${fmt(modelTotal)}</td></tr>`
+  : '<tr><td colspan="2" class="model-stock-empty">Không có MODEL đang tồn</td></tr>';
 }
 function field(label,name,type="text",value="",required=true,opts=null){
  let control=opts?`<select name="${name}" ${required?"required":""}>${opts.map(o=>`<option ${o===value?"selected":""}>${esc(o)}</option>`).join("")}</select>`:`<input name="${name}" type="${type}" value="${esc(value)}" ${required?"required":""} ${type==="number"?'min="0" step="0.001"':""}>`;
