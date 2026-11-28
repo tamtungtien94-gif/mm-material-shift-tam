@@ -94,7 +94,7 @@ td.num{padding-right:16px;font-weight:500}td.empty{text-align:center;color:var(-
       <button id="refreshBtn" class="secondary">Làm mới</button>
     </div>
     <div id="entryPanel" class="entry-panel hidden">
-      <div class="entry-head"><div><h3 id="entryTitle">Nhập giao dịch</h3><p class="hint">Nhập thông tin trực tiếp tại đây, không cần mở cửa sổ riêng.</p></div><button type="button" class="secondary" id="clearEntryBtn">Làm mới form</button></div>
+      <div class="entry-head"><div><h3 id="entryTitle">Nhập giao dịch</h3><p class="hint">Nhập thông tin trực tiếp tại đây. Bản nháp tự lưu trên trình duyệt, kể cả khi cập nhật website hoặc nhấn Ctrl+F5.</p></div><button type="button" class="secondary" id="clearEntryBtn">Làm mới form</button></div>
       <form id="inlineForm"><div id="inlineFields" class="inline-grid"></div><div class="entry-actions"><button type="submit">Lưu dữ liệu</button></div></form>
     </div>
     <div class="toolbar">
@@ -329,7 +329,42 @@ function bindAutocomplete(root){
   input.addEventListener("blur",()=>setTimeout(()=>box.classList.remove("show"),150));
  });
 }
-function openTx(row=null){
+function txDraftKey(area){
+ const uid=session?.user?.id||session?.user?.email||"anonymous";
+ return "mm_tx_draft_v1_"+uid+"_"+area;
+}
+function readTxDraft(area){
+ try{const raw=localStorage.getItem(txDraftKey(area));return raw?JSON.parse(raw):null;}catch(_){return null;}
+}
+function saveTxDraft(){
+ const form=$("inlineForm");
+ if(!form||form.dataset.kind!=="tx"||editId)return;
+ const area=form.querySelector('[name="area"]')?.value;
+ if(!area||!session?.user)return;
+ const values={};
+ new FormData(form).forEach((value,key)=>{values[key]=String(value??"")});
+ const hasContent=Object.entries(values).some(([k,v])=>!['area','trans_date','qty','item_type','movement'].includes(k)&&v.trim()!=="");
+ const key=txDraftKey(area);
+ if(!hasContent){localStorage.removeItem(key);return;}
+ try{localStorage.setItem(key,JSON.stringify({version:1,area,userId:session.user.id,savedAt:new Date().toISOString(),values}));}
+ catch(error){console.warn("Không thể tự lưu bản nháp",error);}
+}
+function clearTxDraft(area){try{localStorage.removeItem(txDraftKey(area));}catch(_){} }
+function applyTxDraft(area){
+ const draft=readTxDraft(area);
+ if(!draft||draft.userId!==session?.user?.id||draft.area!==area||!draft.values)return false;
+ const form=$("inlineForm");
+ Object.entries(draft.values).forEach(([name,value])=>{
+  const input=form.querySelector(`[name="${CSS.escape(name)}"]`);
+  if(input&&name!=="area")input.value=value;
+ });
+ bindAutocomplete($("inlineFields"));
+ const savedAt=draft.savedAt?new Date(draft.savedAt):null;
+ const stamp=savedAt&&!Number.isNaN(savedAt.getTime())?savedAt.toLocaleString("vi-VN"):"trước đó";
+ notify("Đã khôi phục bản nháp nhập "+area+" (tự lưu lúc "+stamp+"). Hãy kiểm tra rồi nhấn Lưu dữ liệu.");
+ return true;
+}
+function openTx(row=null,restoreDraft=true){
  if(row?!can(currentTab,"edit"):!(can(currentTab,"in")||can(currentTab,"out"))){notify("Bạn không có quyền thao tác giao dịch này.",true);return;}
  editId=row?.id||null;const area=row?.area||tabInfo[currentTab].area;
  $("entryTitle").textContent=row?"Sửa giao dịch "+area:"Nhập giao dịch "+area;
@@ -342,6 +377,7 @@ function openTx(row=null){
  field("Tình trạng","movement","text",row?.movement||(typeof can==="function"&&!can(currentTab,"in")&&can(currentTab,"out")?"Xuất":"Nhập"),true,(typeof can==="function"&&!isAdmin?[...(can(currentTab,"in")?["Nhập"]:[]),...(can(currentTab,"out")?["Xuất"]:[])]:["Nhập","Xuất"]))+
  field("Remark","remark","text",row?.remark||"",false)+`<input type="hidden" name="area" value="${esc(area)}">`;
  bindAutocomplete($("inlineFields"));
+ if(!row&&restoreDraft)applyTxDraft(area);
  $("inlineForm").dataset.kind="tx";$("entryPanel").classList.remove("hidden");
 }
 function closeModal(){$("modal").classList.remove("open");editId=null}
@@ -395,7 +431,7 @@ async function saveForm(e){
   result=editId?await db.from("stock_transactions").update(v).eq("id",editId):await db.from("stock_transactions").insert(v);
  }
  if(result.error){notify(result.error.message,true);return}
- if(e.target.id==="dataForm")closeModal();else{editId=null;openTx(null)}notify("Đã lưu dữ liệu.");await loadAll();
+ if(e.target.id==="dataForm")closeModal();else{const savedArea=v.area;clearTxDraft(savedArea);editId=null;openTx(null,false)}notify("Đã lưu dữ liệu.");await loadAll();
 };
 function templateRows(){
  if(currentTab==="CODE")return {name:"Mau_CODE",headers:["Code tổng","Code","Des","MODEL"],rows:[["CT001","GH02-29024A","TAPE INSULATION...","S958"],["CT002","GH02-29024A","TAPE INSULATION...","S958"]]};
@@ -699,7 +735,7 @@ $("loginBtn").onclick=async()=>{
 $("logoutBtn").onclick=()=>db.auth.signOut();
 $("addBtn").onclick=()=>currentTab==="CODE"?openCode():openTx();
 $("cancelBtn").onclick=closeModal;$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};
-$("clearEntryBtn").onclick=()=>openTx(null);
+$("clearEntryBtn").onclick=()=>{clearTxDraft(tabInfo[currentTab].area);openTx(null,false);notify("Đã xóa bản nháp nhập liệu.")};
 $("refreshBtn").onclick=loadAll;
 $("search").oninput=()=>{currentPage=1;render()};
 $("areaFilter").onchange=()=>{currentPage=1;render()};
@@ -711,6 +747,11 @@ $("prevPage").onclick=()=>{if(currentPage>1){currentPage--;render()}};
 $("nextPage").onclick=()=>{currentPage++;render()};
 $("templateBtn").onclick=downloadTemplate;$("exportBtn").onclick=exportExcel;
 $("excelFile").onchange=e=>{if(e.target.files[0])importExcel(e.target.files[0])};
+// Tự lưu bản nháp nhập liệu vào localStorage khi gõ/chọn trường; giữ lại qua Ctrl+F5 và cập nhật website cùng domain.
+$("inlineForm").addEventListener("input",saveTxDraft);
+$("inlineForm").addEventListener("change",saveTxDraft);
+window.addEventListener("pagehide",saveTxDraft);
+window.addEventListener("beforeunload",saveTxDraft);
 init();
 </script>
 </body></html>
