@@ -243,6 +243,8 @@ async function loadAll(){
  }catch(error){notify("Lỗi tải dữ liệu: "+(error?.message||String(error)),true);}
 }
 function setTab(tab){
+ // Lưu bản nháp của tab hiện tại trước khi chuyển sang tab khác.
+ saveTxDraft();
  currentTab=tab;
  if(session?.user?.id) localStorage.setItem("mm_last_tab_"+session.user.id,tab);
  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
@@ -372,7 +374,7 @@ function bindAutocomplete(root){
    box.classList.add("show");
   };
   input.addEventListener("input",update);input.addEventListener("focus",update);
-  box.addEventListener("mousedown",e=>{const item=e.target.closest("[data-value]");if(!item)return;e.preventDefault();input.value=item.dataset.value;box.classList.remove("show");if(kind==="code"){const total=root.querySelector('[data-autocomplete="total"]');if(total){total.value="";total.focus();}}});
+  box.addEventListener("mousedown",e=>{const item=e.target.closest("[data-value]");if(!item)return;e.preventDefault();input.value=item.dataset.value;input.dispatchEvent(new Event("input",{bubbles:true}));input.dispatchEvent(new Event("change",{bubbles:true}));box.classList.remove("show");if(kind==="code"){const total=root.querySelector('[data-autocomplete="total"]');if(total){total.value="";total.focus();}}});
   input.addEventListener("blur",()=>setTimeout(()=>box.classList.remove("show"),150));
  });
 }
@@ -750,6 +752,8 @@ function updatePermissionControls(){
  const submit=$("inlineForm").querySelector('button[type="submit"]');if(submit)submit.disabled=!entryAllowed;
 }
 function setAccountTab(){
+ // Lưu bản nháp giao dịch trước khi rời tab nghiệp vụ sang TÀI KHOẢN.
+ saveTxDraft();
  currentTab='ACCOUNTS';
  if(session?.user?.id) localStorage.setItem("mm_last_tab_"+session.user.id,'ACCOUNTS');document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='ACCOUNTS'));
  $('accountsPanel').classList.remove('hidden');
@@ -797,8 +801,10 @@ $("excelFile").onchange=e=>{if(e.target.files[0])importExcel(e.target.files[0])}
 // Tự lưu bản nháp nhập liệu vào localStorage khi gõ/chọn trường; giữ lại qua Ctrl+F5 và cập nhật website cùng domain.
 $("inlineForm").addEventListener("input",saveTxDraft);
 $("inlineForm").addEventListener("change",saveTxDraft);
+$("inlineForm").addEventListener("focusout",saveTxDraft);
 window.addEventListener("pagehide",saveTxDraft);
 window.addEventListener("beforeunload",saveTxDraft);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")saveTxDraft();});
 init();
 </script>
 </body></html>
